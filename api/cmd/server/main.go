@@ -27,6 +27,7 @@ import (
 	authhttp "campus/api/http/auth"
 	billinghttp "campus/api/http/billing"
 	hostelhttp "campus/api/http/hostel"
+	libraryhttp "campus/api/http/library"
 	messhttp "campus/api/http/mess"
 	noticeshttp "campus/api/http/notices"
 	onboardinghttp "campus/api/http/onboarding"
@@ -36,6 +37,7 @@ import (
 	"campus/backend/auth"
 	"campus/backend/billing"
 	"campus/backend/hostel"
+	"campus/backend/library"
 	"campus/backend/mess"
 	"campus/backend/notices"
 	"campus/backend/onboarding"
@@ -202,11 +204,16 @@ func main() {
 	messService := mess.NewService(messRepo, auditSubscriber)
 	messHandler := messhttp.NewHandler(messService)
 
-	// 9. Initialize HTTP Handlers & Middlewares
+	// 9. Initialize Rank 9: E-Library System
+	libraryRepo := library.NewMockRepository()
+	libraryService := library.NewService(libraryRepo, auditSubscriber)
+	libraryHandler := libraryhttp.NewHandler(libraryService)
+
+	// 10. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 10. Build Chi Router Pipeline
+	// 11. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -242,6 +249,7 @@ func main() {
 	noticesHandler.RegisterRoutes(r)
 	hostelHandler.RegisterRoutes(r)
 	messHandler.RegisterRoutes(r)
+	libraryHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

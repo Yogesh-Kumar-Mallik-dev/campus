@@ -318,6 +318,40 @@ enum MessRebateStatus {
   CREDITED
 }
 
+enum BookCategory {
+  COMPUTER_SCIENCE
+  ELECTRONICS
+  MECHANICAL
+  MATHEMATICS
+  PHYSICS
+  LITERATURE
+  MANAGEMENT
+  GENERAL
+}
+
+enum BookCopyStatus {
+  AVAILABLE
+  ISSUED
+  RESERVED
+  MAINTENANCE
+  LOST
+}
+
+enum BorrowStatus {
+  ISSUED
+  RETURNED
+  OVERDUE
+  LOST
+}
+
+enum ReservationStatus {
+  PENDING
+  READY_FOR_PICKUP
+  FULFILLED
+  EXPIRED
+  CANCELLED
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -368,6 +402,11 @@ model Tenant {
   diningTokens       MessDiningToken[]
   messRebates        MessRebateApplication[]
   messFeedbacks      MessMealFeedback[]
+  libraryBooks       LibraryBook[]
+  libraryBookCopies  LibraryBookCopy[]
+  libraryBorrows     LibraryBorrowRecord[]
+  libraryReservations LibraryReservation[]
+  ebookAccesses      LibraryEbookAccess[]
 
   @@map("tenants")
 }
@@ -407,6 +446,7 @@ model User {
   loggedIncidents        HostelIncidentLog[]   @relation("IncidentLogger")
   managedMessHalls       MessHall[]            @relation("MessManager")
   approvedMessRebates    MessRebateApplication[] @relation("MessRebateApprover")
+  issuedBorrows          LibraryBorrowRecord[] @relation("BorrowIssuer")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -831,6 +871,9 @@ model StudentProfile {
   diningTokens       MessDiningToken[]
   messRebates        MessRebateApplication[]
   messFeedbacks      MessMealFeedback[]
+  libraryBorrows     LibraryBorrowRecord[]
+  libraryReservations LibraryReservation[]
+  ebookAccesses      LibraryEbookAccess[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -1537,6 +1580,123 @@ model MessMealFeedback {
   @@index([tenantId, messHallId, mealDate])
   @@map("mess_meal_feedbacks")
 }
+
+// ------------------------------------------------------------------------------
+// Subsystem: Rank 9 - E-Library System (library)
+// ------------------------------------------------------------------------------
+
+model LibraryBook {
+  id              String         @id @default(uuid(7))
+  tenantId        String         @map("tenant_id")
+  isbn            String
+  title           String
+  author          String
+  publisher       String
+  edition         String?
+  category        BookCategory   @default(GENERAL)
+  totalCopies     Int            @default(1) @map("total_copies")
+  availableCopies Int            @default(1) @map("available_copies")
+  shelfLocation   String         @map("shelf_location") // e.g. "Rack 4, Bay B"
+  ebookKey        String?        @map("ebook_key")
+  ebookFormat     String?        @map("ebook_format") // PDF, EPUB
+  ebookSize       Int?           @map("ebook_size")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  copies          LibraryBookCopy[]
+  reservations    LibraryReservation[]
+  ebookAccesses   LibraryEbookAccess[]
+
+  @@unique([tenantId, isbn])
+  @@index([tenantId, category])
+  @@index([tenantId, title])
+  @@map("library_books")
+}
+
+model LibraryBookCopy {
+  id              String         @id @default(uuid(7))
+  tenantId        String         @map("tenant_id")
+  bookId          String         @map("book_id")
+  accessionNumber String         @map("accession_number") // e.g. "LIB-ACC-001042"
+  barcode         String
+  status          BookCopyStatus @default(AVAILABLE)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  book            LibraryBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  borrows         LibraryBorrowRecord[]
+
+  @@unique([tenantId, accessionNumber])
+  @@index([tenantId, bookId, status])
+  @@map("library_book_copies")
+}
+
+model LibraryBorrowRecord {
+  id          String         @id @default(uuid(7))
+  tenantId    String         @map("tenant_id")
+  copyId      String         @map("copy_id")
+  studentId   String         @map("student_id")
+  borrowedAt  DateTime       @default(now()) @map("borrowed_at")
+  dueDate     DateTime       @map("due_date")
+  returnedAt  DateTime?      @map("returned_at")
+  renewCount  Int            @default(0) @map("renew_count")
+  status      BorrowStatus   @default(ISSUED)
+  fineAmount  Float          @default(0) @map("fine_amount")
+  finePaid    Boolean        @default(false) @map("fine_paid")
+  issuedById  String?        @map("issued_by_id")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  copy        LibraryBookCopy @relation(fields: [copyId], references: [id], onDelete: Cascade)
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  issuedBy    User?          @relation("BorrowIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, studentId, status])
+  @@index([tenantId, copyId, status])
+  @@map("library_borrow_records")
+}
+
+model LibraryReservation {
+  id          String            @id @default(uuid(7))
+  tenantId    String            @map("tenant_id")
+  bookId      String            @map("book_id")
+  studentId   String            @map("student_id")
+  reservedAt  DateTime          @default(now()) @map("reserved_at")
+  expiresAt   DateTime          @map("expires_at")
+  status      ReservationStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  book        LibraryBook       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  student     StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, bookId, status])
+  @@index([tenantId, studentId, status])
+  @@map("library_reservations")
+}
+
+model LibraryEbookAccess {
+  id                  String         @id @default(uuid(7))
+  tenantId            String         @map("tenant_id")
+  bookId              String         @map("book_id")
+  studentId           String         @map("student_id")
+  lastPageRead        Int            @default(1) @map("last_page_read")
+  totalReadingMinutes Int            @default(0) @map("total_reading_minutes")
+  lastAccessedAt      DateTime       @default(now()) @map("last_accessed_at")
+
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  book                LibraryBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  student             StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, bookId, studentId])
+  @@index([tenantId, studentId])
+  @@map("library_ebook_accesses")
+}
+
 
 
 
