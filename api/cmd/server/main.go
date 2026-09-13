@@ -37,6 +37,7 @@ import (
 	helpdeskhttp "campus/api/http/helpdesk"
 	soshttp "campus/api/http/sos"
 	whistleblowerhttp "campus/api/http/whistleblower"
+	portalhttp "campus/api/http/portal"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
@@ -50,6 +51,7 @@ import (
 	"campus/backend/mentorship"
 	"campus/backend/notices"
 	"campus/backend/onboarding"
+	"campus/backend/portal"
 	"campus/backend/sos"
 	"campus/backend/studyhub"
 	"campus/backend/whistleblower"
@@ -251,11 +253,16 @@ func main() {
 	whistleblowerService := whistleblower.NewService(whistleblowerRepo, auditSubscriber)
 	whistleblowerHandler := whistleblowerhttp.NewHandler(whistleblowerService)
 
-	// 16. Initialize HTTP Handlers & Middlewares
+	// 16. Initialize Rank 16: Public Web Portal System
+	portalRepo := portal.NewMockRepository()
+	portalService := portal.NewService(portalRepo, auditSubscriber)
+	portalHandler := portalhttp.NewHandler(portalService)
+
+	// 17. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 17. Build Chi Router Pipeline
+	// 18. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -298,6 +305,7 @@ func main() {
 	helpdeskHandler.RegisterRoutes(r)
 	sosHandler.RegisterRoutes(r)
 	whistleblowerHandler.RegisterRoutes(r)
+	portalHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

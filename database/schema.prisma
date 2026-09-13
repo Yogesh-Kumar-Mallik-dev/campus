@@ -428,6 +428,9 @@ model Tenant {
   whistleblowerReports WhistleblowerReport[]
   whistleblowerMessages WhistleblowerMessage[]
   whistleblowerEvidences WhistleblowerEvidence[]
+  portalLandingPage  PortalLandingPage?
+  portalPrograms     PortalProgramCatalog[]
+  portalInquiries    PortalPublicInquiry[]
 
   @@map("tenants")
 }
@@ -481,6 +484,7 @@ model User {
   resolvedSOSAlerts      SOSIncident[]         @relation("SOSResolverUser")
   dispatchedSOSMissions  SOSDispatchResponder[] @relation("SOSResponderUser")
   assignedWhistleblowerReports WhistleblowerReport[] @relation("WhistleblowerInvestigator")
+  counseledInquiries     PortalPublicInquiry[] @relation("InquiryCounselor")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -2430,6 +2434,88 @@ model WhistleblowerEvidence {
   @@index([tenantId, reportId])
   @@map("whistleblower_evidences")
 }
+
+// ==============================================================================
+// RANK 16: Public Web Portal (Landing Showcase, Program Catalog & Prospect Intake)
+// ==============================================================================
+
+enum PortalDegreeType {
+  UG
+  PG
+  DIPLOMA
+  PHD
+}
+
+enum PortalInquiryStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  CLOSED
+}
+
+model PortalLandingPage {
+  id              String   @id @default(uuid(7))
+  tenantId        String   @unique @map("tenant_id")
+  heroHeadline    String   @map("hero_headline")
+  heroSubheadline String   @map("hero_subheadline")
+  admissionsOpen  Boolean  @default(true) @map("admissions_open")
+  admissionsCycle String   @default("2026-2027") @map("admissions_cycle")
+  heroImageUrl    String?  @map("hero_image_url")
+  contactEmail    String   @map("contact_email")
+  contactPhone    String   @map("contact_phone")
+  campusAddress   String   @map("campus_address")
+  isPublished     Boolean  @default(true) @map("is_published")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("portal_landing_pages")
+}
+
+model PortalProgramCatalog {
+  id                  String           @id @default(uuid(7))
+  tenantId            String           @map("tenant_id")
+  programCode         String           @map("program_code") // e.g. "BTECH_AI"
+  programName         String           @map("program_name") // e.g. "B.Tech in Artificial Intelligence"
+  degreeType          PortalDegreeType @default(UG) @map("degree_type")
+  departmentName      String           @map("department_name")
+  durationYears       Int              @default(4) @map("duration_years")
+  totalSemesters      Int              @default(8) @map("total_semesters")
+  eligibilityCriteria String           @map("eligibility_criteria")
+  annualFee           Float            @default(0.0) @map("annual_fee")
+  isFeatured          Boolean          @default(false) @map("is_featured")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, programCode])
+  @@index([tenantId, degreeType, isFeatured])
+  @@map("portal_program_catalogs")
+}
+
+model PortalPublicInquiry {
+  id                  String              @id @default(uuid(7))
+  tenantId            String              @map("tenant_id")
+  prospectName        String              @map("prospect_name")
+  prospectEmail       String              @map("prospect_email")
+  prospectPhone       String              @map("prospect_phone")
+  programOfInterest   String              @map("program_of_interest")
+  message             String
+  status              PortalInquiryStatus @default(NEW)
+  assignedCounselorId String?             @map("assigned_counselor_id")
+  notes               String?
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedCounselor   User?               @relation("InquiryCounselor", fields: [assignedCounselorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@map("portal_public_inquiries")
+}
+
 
 
 
