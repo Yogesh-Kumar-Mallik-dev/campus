@@ -431,6 +431,9 @@ model Tenant {
   portalLandingPage  PortalLandingPage?
   portalPrograms     PortalProgramCatalog[]
   portalInquiries    PortalPublicInquiry[]
+  hubDashboards      HubPersonaDashboard[]
+  hubWidgets         HubWidgetConfig[]
+  hubShortcuts       HubQuickActionShortcut[]
 
   @@map("tenants")
 }
@@ -485,6 +488,7 @@ model User {
   dispatchedSOSMissions  SOSDispatchResponder[] @relation("SOSResponderUser")
   assignedWhistleblowerReports WhistleblowerReport[] @relation("WhistleblowerInvestigator")
   counseledInquiries     PortalPublicInquiry[] @relation("InquiryCounselor")
+  hubDashboards          HubPersonaDashboard[]
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -2515,6 +2519,95 @@ model PortalPublicInquiry {
   @@index([tenantId, status, createdAt])
   @@map("portal_public_inquiries")
 }
+
+// ==============================================================================
+// RANK 17: The Hub Root Super-App (Unified Persona Cockpit, Aggregation & Routing)
+// ==============================================================================
+
+enum HubPersonaType {
+  STUDENT
+  FACULTY
+  WARDEN
+  LIBRARIAN
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum HubWidgetSize {
+  SMALL
+  MEDIUM
+  LARGE
+  FULL_WIDTH
+}
+
+enum HubWidgetCategory {
+  METRICS
+  ACTIONS
+  SCHEDULE
+  COMMUNICATION
+  SAFETY
+  FINANCE
+}
+
+model HubPersonaDashboard {
+  id          String         @id @default(uuid(7))
+  tenantId    String         @map("tenant_id")
+  userId      String         @map("user_id")
+  persona     HubPersonaType @default(STUDENT)
+  layoutTheme String         @default("default") @map("layout_theme")
+  isDefault   Boolean        @default(true) @map("is_default")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  widgets     HubWidgetConfig[]
+
+  @@unique([tenantId, userId, persona])
+  @@map("hub_persona_dashboards")
+}
+
+model HubWidgetConfig {
+  id          String            @id @default(uuid(7))
+  tenantId    String            @map("tenant_id")
+  dashboardId String            @map("dashboard_id")
+  widgetKey   String            @map("widget_key") // e.g. "attendance_summary", "overdue_books", "sos_radar"
+  title       String
+  category    HubWidgetCategory @default(METRICS)
+  size        HubWidgetSize     @default(MEDIUM)
+  orderIndex  Int               @default(0) @map("order_index")
+  isEnabled   Boolean           @default(true) @map("is_enabled")
+  configJson  String?           @map("config_json")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dashboard   HubPersonaDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dashboardId, orderIndex])
+  @@map("hub_widget_configs")
+}
+
+model HubQuickActionShortcut {
+  id          String         @id @default(uuid(7))
+  tenantId    String         @map("tenant_id")
+  persona     HubPersonaType @default(STUDENT)
+  shortcutKey String         @map("shortcut_key") // e.g. "TRIGGER_SOS", "MARK_ATTENDANCE"
+  title       String
+  description String?
+  iconName    String         @default("star") @map("icon_name")
+  targetRoute String         @map("target_route")
+  orderIndex  Int            @default(0) @map("order_index")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, persona, orderIndex])
+  @@map("hub_quick_action_shortcuts")
+}
+
 
 
 

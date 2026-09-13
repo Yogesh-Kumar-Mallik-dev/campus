@@ -38,6 +38,7 @@ import (
 	soshttp "campus/api/http/sos"
 	whistleblowerhttp "campus/api/http/whistleblower"
 	portalhttp "campus/api/http/portal"
+	hubhttp "campus/api/http/hub"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
@@ -46,6 +47,7 @@ import (
 	"campus/backend/events"
 	"campus/backend/helpdesk"
 	"campus/backend/hostel"
+	"campus/backend/hub"
 	"campus/backend/library"
 	"campus/backend/mess"
 	"campus/backend/mentorship"
@@ -258,11 +260,16 @@ func main() {
 	portalService := portal.NewService(portalRepo, auditSubscriber)
 	portalHandler := portalhttp.NewHandler(portalService)
 
-	// 17. Initialize HTTP Handlers & Middlewares
+	// 17. Initialize Rank 17: The Hub Root Super-App System
+	hubRepo := hub.NewMockRepository()
+	hubService := hub.NewService(hubRepo, auditSubscriber)
+	hubHandler := hubhttp.NewHandler(hubService)
+
+	// 18. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 18. Build Chi Router Pipeline
+	// 19. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -306,6 +313,7 @@ func main() {
 	sosHandler.RegisterRoutes(r)
 	whistleblowerHandler.RegisterRoutes(r)
 	portalHandler.RegisterRoutes(r)
+	hubHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,
