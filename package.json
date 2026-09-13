@@ -1,0 +1,22 @@
+{
+  "name": "campus-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "./script.sh dev",
+    "build": "./script.sh build",
+    "check": "./script.sh check",
+    "test": "./script.sh test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{js,ts,svelte,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "prettier-plugin-svelte": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "turbo": "^2.4.4"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

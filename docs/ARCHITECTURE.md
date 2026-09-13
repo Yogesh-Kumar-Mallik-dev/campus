@@ -445,3 +445,53 @@ func NewService(repo Repository) *Service {
 ```
 
 Unit tests execute in milliseconds using in-memory mock repositories, guaranteeing 100% domain coverage and zero test flakiness.
+
+---
+
+## 7. Technology Stack & Monorepo Topology
+
+```mermaid
+flowchart TB
+    subgraph Repo["Campus Monorepo (Turborepo + pnpm Workspace)"]
+        subgraph Frontends["Frontend Packages"]
+            Web["@campus/web: Svelte 5 + SvelteKit 2 + shadcn-svelte"]
+            Desktop["@campus/desktop: Tauri 2 Shell"]
+            Mobile["@campus/mobile: React Native + Expo + NativeWind + React Native Reusables"]
+            Tokens["@campus/ui-tokens: Shared Design Tokens"]
+            Client["@campus/api-client: RFC 7807 Typed Client"]
+        end
+
+        subgraph BackendPkg["Backend Core (Go 1.23+)"]
+            GoAPI["api/: go-chi HTTP Gateway & Middleware"]
+            GoCore["backend/: 17 Domain Subsystems (DI)"]
+        end
+
+        subgraph DataLayerPkg["Detached Data Layer"]
+            PrismaPkg["database/: PostgreSQL 18 + Prisma Schema & TS Toolchain"]
+        end
+    end
+
+    Web --> Tokens
+    Web --> Client
+    Mobile --> Tokens
+    Mobile --> Client
+    Desktop --> Web
+    Client --> GoAPI
+    GoAPI --> GoCore
+    GoCore --> PrismaPkg
+```
+
+### Stack Components Matrix
+
+| Layer | Technology | Key Capabilities |
+| :--- | :--- | :--- |
+| **Web Presentation** | **Svelte 5 + SvelteKit 2** | Runes reactivity (`$state`, `$derived`), fast SSR/CSR, minimal bundle size. |
+| **Web UI Components** | **shadcn-svelte** | Accessible Tailwind primitives (Bits UI), zero runtime CSS overhead. |
+| **Desktop Shell** | **Tauri 2** | Lightweight cross-platform desktop binary wrapping the SvelteKit frontend. |
+| **Mobile Client** | **React Native + Expo Router** | File-based mobile routing, offline biometrics, camera QR scanner, GPS SOS triggers. |
+| **Mobile UI Components** | **React Native Reusables** | Direct React Native counterpart for shadcn/ui (`@rn-primitives` + NativeWind). |
+| **Backend & API** | **Go 1.23+ (go-chi)** | High-throughput modular monolith, RFC 7807 error format, interface-driven DI. |
+| **Detached Data Layer** | **PostgreSQL 18 + Prisma** | Declarative schema authority, migration engine, visual data studio, TypeScript seeders. |
+| **Monorepo Orchestrator** | **Turborepo + pnpm Workspace** | High-speed task caching, parallel execution, single root lockfile. |
+| **Lifecycle Orchestrator** | **`./script.sh` / `.\script.ps1`** | Universal POSIX and PowerShell CLI entrypoint for all developer workflows. |
+

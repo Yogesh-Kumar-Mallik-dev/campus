@@ -1,0 +1,6 @@
+packages:
+  - 'frontend/web'
+  - 'frontend/mobile'
+  - 'frontend/desktop'
+  - 'frontend/packages/*'
+  - 'database'
