@@ -36,6 +36,7 @@ import (
 	eventshttp "campus/api/http/events"
 	helpdeskhttp "campus/api/http/helpdesk"
 	soshttp "campus/api/http/sos"
+	whistleblowerhttp "campus/api/http/whistleblower"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
@@ -51,6 +52,7 @@ import (
 	"campus/backend/onboarding"
 	"campus/backend/sos"
 	"campus/backend/studyhub"
+	"campus/backend/whistleblower"
 )
 
 // AuthAuditBridge adapts auth domain events into the central audit ledger.
@@ -244,11 +246,16 @@ func main() {
 	sosService := sos.NewService(sosRepo, auditSubscriber)
 	sosHandler := soshttp.NewHandler(sosService)
 
-	// 15. Initialize HTTP Handlers & Middlewares
+	// 15. Initialize Rank 15: Anonymity & Whistleblower System
+	whistleblowerRepo := whistleblower.NewMockRepository()
+	whistleblowerService := whistleblower.NewService(whistleblowerRepo, auditSubscriber)
+	whistleblowerHandler := whistleblowerhttp.NewHandler(whistleblowerService)
+
+	// 16. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 16. Build Chi Router Pipeline
+	// 17. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -290,6 +297,7 @@ func main() {
 	eventsHandler.RegisterRoutes(r)
 	helpdeskHandler.RegisterRoutes(r)
 	sosHandler.RegisterRoutes(r)
+	whistleblowerHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

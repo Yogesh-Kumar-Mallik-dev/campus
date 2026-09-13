@@ -425,6 +425,9 @@ model Tenant {
   sosIncidents       SOSIncident[]
   sosResponders      SOSDispatchResponder[]
   sosBroadcasts      SOSTelemetryBroadcast[]
+  whistleblowerReports WhistleblowerReport[]
+  whistleblowerMessages WhistleblowerMessage[]
+  whistleblowerEvidences WhistleblowerEvidence[]
 
   @@map("tenants")
 }
@@ -477,6 +480,7 @@ model User {
   triggeredSOSAlerts     SOSIncident[]         @relation("SOSTriggerUser")
   resolvedSOSAlerts      SOSIncident[]         @relation("SOSResolverUser")
   dispatchedSOSMissions  SOSDispatchResponder[] @relation("SOSResponderUser")
+  assignedWhistleblowerReports WhistleblowerReport[] @relation("WhistleblowerInvestigator")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -2334,6 +2338,99 @@ model SOSTelemetryBroadcast {
   @@index([tenantId, incidentId])
   @@map("sos_telemetry_broadcasts")
 }
+
+// ==============================================================================
+// RANK 15: Anonymity & Whistleblower System (Encrypted Grievance, Zero-Knowledge Tokens & Anti-Ragging)
+// ==============================================================================
+
+enum WhistleblowerCategory {
+  ANTI_RAGGING
+  FINANCIAL_FRAUD
+  ACADEMIC_CORRUPTION
+  HARASSMENT
+  SAFETY_VIOLATION
+  OTHER
+}
+
+enum WhistleblowerSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WhistleblowerStatus {
+  SUBMITTED
+  UNDER_INVESTIGATION
+  EVIDENCE_REQUESTED
+  RESOLVED
+  REJECTED
+}
+
+enum WhistleblowerSenderType {
+  ANONYMOUS_REPORTER
+  INVESTIGATION_COMMITTEE
+}
+
+model WhistleblowerReport {
+  id                   String                 @id @default(uuid(7))
+  tenantId             String                 @map("tenant_id")
+  reportNumber         String                 @map("report_number") // e.g. "WB-2026-00001"
+  trackingHash         String                 @unique @map("tracking_hash") // SHA-256 hash of secret token
+  category             WhistleblowerCategory  @default(ANTI_RAGGING)
+  severity             WhistleblowerSeverity  @default(HIGH)
+  title                String
+  descriptionEncrypted String                 @map("description_encrypted")
+  status               WhistleblowerStatus    @default(SUBMITTED)
+  assignedOfficerId    String?                @map("assigned_officer_id")
+  findingsSummary      String?                @map("findings_summary")
+  submittedAt          DateTime               @default(now()) @map("submitted_at")
+  resolvedAt           DateTime?              @map("resolved_at")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedOfficer      User?                  @relation("WhistleblowerInvestigator", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  messages             WhistleblowerMessage[]
+  evidences            WhistleblowerEvidence[]
+
+  @@unique([tenantId, reportNumber])
+  @@index([tenantId, status, category])
+  @@index([tenantId, submittedAt])
+  @@map("whistleblower_reports")
+}
+
+model WhistleblowerMessage {
+  id               String                  @id @default(uuid(7))
+  tenantId         String                  @map("tenant_id")
+  reportId         String                  @map("report_id")
+  senderType       WhistleblowerSenderType @map("sender_type")
+  messageEncrypted String                  @map("message_encrypted")
+  createdAt        DateTime                @default(now()) @map("created_at")
+
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  report           WhistleblowerReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, reportId, createdAt])
+  @@map("whistleblower_messages")
+}
+
+model WhistleblowerEvidence {
+  id        String              @id @default(uuid(7))
+  tenantId  String              @map("tenant_id")
+  reportId  String              @map("report_id")
+  fileUrl   String              @map("file_url")
+  fileHash  String              @map("file_hash") // SHA-256 integrity hash
+  mimeType  String              @map("mime_type")
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  report    WhistleblowerReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, reportId])
+  @@map("whistleblower_evidences")
+}
+
 
 
 
