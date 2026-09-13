@@ -415,6 +415,9 @@ model Tenant {
   mentorshipSessions MentorshipSession[]
   studentProgress    StudentAcademicProgress[]
   atRiskAlerts       MentorshipAtRiskAlert[]
+  campusEvents       CampusEvent[]
+  eventTickets       EventTicket[]
+  eventVenueBookings EventVenueBooking[]
 
   @@map("tenants")
 }
@@ -457,6 +460,9 @@ model User {
   issuedBorrows          LibraryBorrowRecord[] @relation("BorrowIssuer")
   createdCourses         StudyCourse[]         @relation("CourseInstructor")
   gradedSubmissions      StudySubmission[]     @relation("SubmissionGrader")
+  organizedEvents        CampusEvent[]
+  checkedInTickets       EventTicket[]         @relation("TicketCheckInStaff")
+  venueBookings          EventVenueBooking[]   @relation("VenueBooker")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -889,6 +895,7 @@ model StudentProfile {
   mentorAllocations  MentorAllocation[]
   academicProgress   StudentAcademicProgress[]
   atRiskAlerts       MentorshipAtRiskAlert[]
+  eventTickets       EventTicket[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -1980,6 +1987,111 @@ model MentorshipAtRiskAlert {
   @@index([tenantId, studentId, severity])
   @@map("mentorship_at_risk_alerts")
 }
+
+// ==============================================================================
+// RANK 12: Event Organisation System (Calendar, Venues, Ticketing & QR Check-In)
+// ==============================================================================
+
+enum EventCategory {
+  CULTURAL
+  TECHNICAL
+  SPORTS
+  ACADEMIC_WORKSHOP
+  GUEST_LECTURE
+  CAREER_FAIR
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum TicketStatus {
+  CONFIRMED
+  CHECKED_IN
+  CANCELLED
+}
+
+enum VenueBookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model CampusEvent {
+  id                   String        @id @default(uuid(7))
+  tenantId             String        @map("tenant_id")
+  title                String
+  description          String
+  category             EventCategory @default(TECHNICAL)
+  venueName            String        @map("venue_name")
+  venueCapacity        Int           @default(100) @map("venue_capacity")
+  startTime            DateTime      @map("start_time")
+  endTime              DateTime      @map("end_time")
+  registrationDeadline DateTime      @map("registration_deadline")
+  organizerId          String        @map("organizer_id")
+  status               EventStatus   @default(DRAFT)
+  isTicketed           Boolean       @default(false) @map("is_ticketed")
+  ticketPrice          Float         @default(0.0) @map("ticket_price")
+  maxTickets           Int           @default(100) @map("max_tickets")
+  ticketsSold          Int           @default(0) @map("tickets_sold")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organizer            User          @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  tickets              EventTicket[]
+  venueBookings        EventVenueBooking[]
+
+  @@index([tenantId, category, status])
+  @@index([tenantId, startTime])
+  @@map("campus_events")
+}
+
+model EventTicket {
+  id            String       @id @default(uuid(7))
+  tenantId      String       @map("tenant_id")
+  eventId       String       @map("event_id")
+  studentId     String       @map("student_id")
+  ticketCode    String       @unique @map("ticket_code")
+  status        TicketStatus @default(CONFIRMED)
+  checkedInAt   DateTime?    @map("checked_in_at")
+  checkedInById String?      @map("checked_in_by_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event         CampusEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  checkedInBy   User?        @relation("TicketCheckInStaff", fields: [checkedInById], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, studentId])
+  @@index([tenantId, eventId, status])
+  @@index([tenantId, studentId])
+  @@map("event_tickets")
+}
+
+model EventVenueBooking {
+  id              String             @id @default(uuid(7))
+  tenantId        String             @map("tenant_id")
+  venueName       String             @map("venue_name")
+  eventId         String             @map("event_id")
+  bookedStartTime DateTime           @map("booked_start_time")
+  bookedEndTime   DateTime           @map("booked_end_time")
+  bookedById      String             @map("booked_by_id")
+  status          VenueBookingStatus @default(CONFIRMED)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event           CampusEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookedBy        User               @relation("VenueBooker", fields: [bookedById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, venueName, bookedStartTime, bookedEndTime])
+  @@map("event_venue_bookings")
+}
+
 
 
 
