@@ -35,6 +35,7 @@ import (
 	mentorshiphttp "campus/api/http/mentorship"
 	eventshttp "campus/api/http/events"
 	helpdeskhttp "campus/api/http/helpdesk"
+	soshttp "campus/api/http/sos"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
@@ -48,6 +49,7 @@ import (
 	"campus/backend/mentorship"
 	"campus/backend/notices"
 	"campus/backend/onboarding"
+	"campus/backend/sos"
 	"campus/backend/studyhub"
 )
 
@@ -237,11 +239,16 @@ func main() {
 	helpdeskService := helpdesk.NewService(helpdeskRepo, auditSubscriber)
 	helpdeskHandler := helpdeskhttp.NewHandler(helpdeskService)
 
-	// 14. Initialize HTTP Handlers & Middlewares
+	// 14. Initialize Rank 14: SOS & Emergency Response System
+	sosRepo := sos.NewMockRepository()
+	sosService := sos.NewService(sosRepo, auditSubscriber)
+	sosHandler := soshttp.NewHandler(sosService)
+
+	// 15. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 15. Build Chi Router Pipeline
+	// 16. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -282,6 +289,7 @@ func main() {
 	mentorshipHandler.RegisterRoutes(r)
 	eventsHandler.RegisterRoutes(r)
 	helpdeskHandler.RegisterRoutes(r)
+	sosHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

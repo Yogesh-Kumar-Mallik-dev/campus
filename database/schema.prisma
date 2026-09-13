@@ -422,6 +422,9 @@ model Tenant {
   helpdeskTickets    HelpdeskTicket[]
   helpdeskMessages   HelpdeskMessage[]
   helpdeskEscalations HelpdeskEscalation[]
+  sosIncidents       SOSIncident[]
+  sosResponders      SOSDispatchResponder[]
+  sosBroadcasts      SOSTelemetryBroadcast[]
 
   @@map("tenants")
 }
@@ -471,6 +474,9 @@ model User {
   assignedTickets        HelpdeskTicket[]      @relation("TicketAssignee")
   helpdeskMessages       HelpdeskMessage[]     @relation("MessageSender")
   escalatedTickets       HelpdeskEscalation[]  @relation("EscalationStaff")
+  triggeredSOSAlerts     SOSIncident[]         @relation("SOSTriggerUser")
+  resolvedSOSAlerts      SOSIncident[]         @relation("SOSResolverUser")
+  dispatchedSOSMissions  SOSDispatchResponder[] @relation("SOSResponderUser")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -2217,6 +2223,118 @@ model HelpdeskEscalation {
   @@index([tenantId, ticketId, status])
   @@map("helpdesk_escalations")
 }
+
+// ==============================================================================
+// RANK 14: SOS & Emergency Response (1-Tap Alerts, Geo-Broadcast & Dispatch Desk)
+// ==============================================================================
+
+enum SOSEmergencyType {
+  MEDICAL
+  FIRE
+  SECURITY_THREAT
+  NATURAL_HAZARD
+  HARASSMENT_RAGGING
+  OTHER
+}
+
+enum SOSIncidentStatus {
+  TRIGGERED
+  ACKNOWLEDGED
+  DISPATCHED
+  ON_SCENE
+  RESOLVED
+  FALSE_ALARM
+}
+
+enum SOSResponderRole {
+  CAMPUS_SECURITY
+  PARAMEDIC
+  HOSTEL_WARDEN
+  FIRE_SAFETY_OFFICER
+  POLICE_LIAISON
+}
+
+enum SOSResponderStatus {
+  ASSIGNED
+  EN_ROUTE
+  ON_SCENE
+  COMPLETED
+}
+
+enum SOSTelemetryChannel {
+  SMS_GATEWAY
+  PUSH_NOTIFICATION
+  CAMPUS_PA
+  PUBLIC_SIREN
+}
+
+model SOSIncident {
+  id                  String            @id @default(uuid(7))
+  tenantId            String            @map("tenant_id")
+  alertNumber         String            @map("alert_number") // e.g. "SOS-2026-00001"
+  userId              String            @map("user_id")
+  emergencyType       SOSEmergencyType  @default(MEDICAL) @map("emergency_type")
+  latitude            Float
+  longitude           Float
+  locationDescription String            @map("location_description")
+  status              SOSIncidentStatus @default(TRIGGERED)
+  triggeredAt         DateTime          @default(now()) @map("triggered_at")
+  acknowledgedAt      DateTime?         @map("acknowledged_at")
+  resolvedAt          DateTime?         @map("resolved_at")
+  resolvedById        String?           @map("resolved_by_id")
+  resolutionNotes     String?           @map("resolution_notes")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                User              @relation("SOSTriggerUser", fields: [userId], references: [id], onDelete: Cascade)
+  resolvedBy          User?             @relation("SOSResolverUser", fields: [resolvedById], references: [id], onDelete: SetNull)
+  responders          SOSDispatchResponder[]
+  broadcasts          SOSTelemetryBroadcast[]
+
+  @@unique([tenantId, alertNumber])
+  @@index([tenantId, status, emergencyType])
+  @@index([tenantId, triggeredAt])
+  @@map("sos_incidents")
+}
+
+model SOSDispatchResponder {
+  id           String             @id @default(uuid(7))
+  tenantId     String             @map("tenant_id")
+  incidentId   String             @map("incident_id")
+  responderId  String             @map("responder_id")
+  role         SOSResponderRole   @default(CAMPUS_SECURITY)
+  status       SOSResponderStatus @default(ASSIGNED)
+  dispatchedAt DateTime           @default(now()) @map("dispatched_at")
+  arrivedAt    DateTime?          @map("arrived_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incident     SOSIncident        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  responder    User               @relation("SOSResponderUser", fields: [responderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, incidentId, status])
+  @@map("sos_dispatch_responders")
+}
+
+model SOSTelemetryBroadcast {
+  id             String              @id @default(uuid(7))
+  tenantId       String              @map("tenant_id")
+  incidentId     String              @map("incident_id")
+  channel        SOSTelemetryChannel @default(PUSH_NOTIFICATION)
+  payload        String
+  deliveredCount Int                 @default(0) @map("delivered_count")
+  broadcastAt    DateTime            @default(now()) @map("broadcast_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incident       SOSIncident         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, incidentId])
+  @@map("sos_telemetry_broadcasts")
+}
+
 
 
 
