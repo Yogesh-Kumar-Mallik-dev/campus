@@ -43,6 +43,7 @@ coverage/
 *.dylib
 *.test
 *.out
+server
 vendor/
 
 # Rust Toolchain
