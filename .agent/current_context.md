@@ -67,5 +67,6 @@ The Campus Management System is an enterprise-grade platform unifying 17 core ca
 
 - **Current Subsystem:** **Rank 1: Central Auth & Permissions System (IAM)** (`auth`).
 - **Completed:** Step 1: PostgreSQL 18 schema defined in `database/schema.prisma` (Tenant, User, Role, Permission, UserRole, Session, RefreshTokenFamily, MFAEnrollment).
-- **Active Step:** Step 2: Construct Go domain models, error contracts, events, and DI interfaces in `backend/auth/`.
-- **Immediate Next:** Step 3: Implement Argon2id password hasher, token family rotation engine, TOTP provider, and 100% mock unit test suite in `backend/auth/`.
+- **Completed:** Step 2: Go domain core, Argon2id hasher, JWT signer, RFC 6238 TOTP engine, and AAA mock test suite (15/15 tests passing, 84% coverage) in `backend/auth/`.
+- **Active Step:** Step 3: Implement RFC 7807 Problem Details HTTP error engine in `api/problem/` and Chi REST handlers in `api/http/auth/`.
+- **Immediate Next:** Step 4: Build Svelte 5 / shadcn-svelte web views and React Native Reusables mobile views for IAM.
