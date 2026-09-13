@@ -37,18 +37,24 @@
 				</p>
 			</div>
 
-			<div class="flex flex-col sm:flex-row gap-3 shrink-0">
+			<div class="flex flex-wrap gap-2.5 shrink-0">
 				<a
-					href="/audit"
+					href="/onboarding"
 					class={cn(buttonVariants({ variant: 'default' }), 'font-semibold')}
 				>
-					Explore Audit Ledger
+					Admissions KYC
 				</a>
 				<a
-					href="/audit/compliance"
+					href="/admin/onboarding"
+					class={cn(buttonVariants({ variant: 'secondary' }), 'font-semibold')}
+				>
+					Admissions Desk
+				</a>
+				<a
+					href="/audit"
 					class={cn(buttonVariants({ variant: 'outline' }), 'font-semibold')}
 				>
-					Accreditation Reports
+					Audit Ledger
 				</a>
 			</div>
 		</div>

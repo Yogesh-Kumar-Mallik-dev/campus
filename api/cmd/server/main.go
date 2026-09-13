@@ -24,9 +24,11 @@ import (
 	"campus/api"
 	audithttp "campus/api/http/audit"
 	authhttp "campus/api/http/auth"
+	onboardinghttp "campus/api/http/onboarding"
 	"campus/api/middleware"
 	"campus/backend/audit"
 	"campus/backend/auth"
+	"campus/backend/onboarding"
 )
 
 // AuthAuditBridge adapts auth domain events into the central audit ledger.
@@ -117,11 +119,29 @@ func main() {
 		nil,
 	)
 
-	// 3. Initialize HTTP Handlers & Middlewares
+	// 3. Initialize Rank 3: Student & Staff Registration System (Onboarding)
+	onboardingAppRepo := onboarding.NewMockApplicantRepository()
+	onboardingDocRepo := onboarding.NewMockDocumentRepository()
+	onboardingAcadRepo := onboarding.NewMockAcademicRepository()
+	onboardingProfRepo := onboarding.NewMockProfileRepository()
+	onboardingSeqRepo := onboarding.NewMockSequenceRepository()
+	onboardingSeqEngine := onboarding.NewSequenceEngine(onboardingSeqRepo)
+
+	onboardingService := onboarding.NewService(
+		onboardingAppRepo,
+		onboardingDocRepo,
+		onboardingAcadRepo,
+		onboardingProfRepo,
+		onboardingSeqEngine,
+		auditSubscriber,
+	)
+	onboardingHandler := onboardinghttp.NewHandler(onboardingService)
+
+	// 4. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 4. Build Chi Router Pipeline
+	// 5. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -151,6 +171,7 @@ func main() {
 	// Register Domain Subsystem Routes
 	authhttp.RegisterRoutes(r, authHandler, authMiddleware)
 	audithttp.RegisterRoutes(r, auditService)
+	onboardingHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

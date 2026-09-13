@@ -28,12 +28,18 @@ export default function HubHomeScreen() {
           Rank 1 IAM & Rank 2 Audit Active · 30,000 Total Capacity
         </Text>
 
-        <View className="flex-row gap-2 mt-4">
+        <View className="flex-row gap-2 mt-4 flex-wrap">
           <TouchableOpacity
-            onPress={() => router.push('/(app)/audit')}
+            onPress={() => router.push('/(app)/onboarding')}
             className="px-3 py-2 bg-white rounded-xl"
           >
-            <Text className="text-xs font-bold text-slate-900">Audit Logs →</Text>
+            <Text className="text-xs font-bold text-slate-900">Onboarding →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/audit')}
+            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl"
+          >
+            <Text className="text-xs font-bold text-white">Audit Logs →</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push('/(app)/compliance')}

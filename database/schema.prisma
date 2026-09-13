@@ -48,6 +48,53 @@ enum AuditStatus {
   ATTEMPTED
 }
 
+enum OnboardingType {
+  STUDENT
+  FACULTY
+  STAFF
+  WARDEN
+  LIBRARIAN
+}
+
+enum OnboardingStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  ENROLLED
+}
+
+enum DocumentType {
+  NATIONAL_ID
+  PASSPORT
+  BIRTH_CERTIFICATE
+  ACADEMIC_TRANSCRIPT
+  DEGREE_CERTIFICATE
+  TRANSFER_CERTIFICATE
+  MEDICAL_FITNESS
+  PASSPORT_PHOTO
+}
+
+enum DocumentStatus {
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum DegreeType {
+  UG
+  PG
+  DIPLOMA
+  DOCTORAL
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -66,6 +113,14 @@ model Tenant {
   sessions         Session[]
   auditLogs        AuditLog[]
   auditCheckpoints AuditVerificationCheckpoint[]
+  departments      AcademicDepartment[]
+  programs         AcademicProgram[]
+  cohorts          CohortBatch[]
+  applicants       OnboardingApplicant[]
+  documents        OnboardingDocument[]
+  students         StudentProfile[]
+  staffProfiles    StaffProfile[]
+  sequenceCounters IdentitySequenceCounter[]
 
   @@map("tenants")
 }
@@ -93,6 +148,10 @@ model User {
   tokenFamilies        RefreshTokenFamily[]
   mfaEnrollment        MFAEnrollment?
   auditLogs            AuditLog[]
+  studentProfile       StudentProfile?
+  staffProfile         StaffProfile?
+  reviewedApplicants   OnboardingApplicant[] @relation("ApplicantReviewer")
+  verifiedDocuments    OnboardingDocument[]  @relation("DocumentVerifier")
 
   createdAt            DateTime     @default(now()) @map("created_at")
   updatedAt            DateTime     @updatedAt @map("updated_at")
@@ -306,5 +365,251 @@ model AuditVerificationCheckpoint {
 
   @@index([tenantId, verifiedAt])
   @@map("audit_verification_checkpoints")
+}
+
+// ==============================================================================
+// Subsystem: Rank 3 - Student & Staff Registration System (onboarding)
+// KYC Workflows, Deterministic Roll Numbers/Employee IDs & Cohort Provisioning
+// ==============================================================================
+
+// ------------------------------------------------------------------------------
+// Academic Structure (Departments & Programs)
+// ------------------------------------------------------------------------------
+
+model AcademicDepartment {
+  id          String   @id @default(uuid(7))
+  tenantId    String   @map("tenant_id")
+  code        String   // e.g. "CSE", "ECE", "MECH", "ADMIN"
+  name        String   // e.g. "Computer Science & Engineering"
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programs    AcademicProgram[]
+  applicants  OnboardingApplicant[]
+  staff       StaffProfile[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("academic_departments")
+}
+
+model AcademicProgram {
+  id             String     @id @default(uuid(7))
+  tenantId       String     @map("tenant_id")
+  departmentId   String     @map("department_id")
+  code           String     // e.g. "BTECH_CSE", "MTECH_AI"
+  name           String     // e.g. "Bachelor of Technology in Computer Science"
+  degreeType     DegreeType @default(UG) @map("degree_type")
+  durationYears  Int        @default(4) @map("duration_years")
+  totalSemesters Int        @default(8) @map("total_semesters")
+  isActive       Boolean    @default(true) @map("is_active")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department     AcademicDepartment  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  cohorts        CohortBatch[]
+  applicants     OnboardingApplicant[]
+  students       StudentProfile[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, departmentId])
+  @@map("academic_programs")
+}
+
+model CohortBatch {
+  id           String          @id @default(uuid(7))
+  tenantId     String          @map("tenant_id")
+  programId    String          @map("program_id")
+  academicYear String          @map("academic_year") // e.g. "2026-2027"
+  startYear    Int             @map("start_year")    // 2026
+  endYear      Int             @map("end_year")      // 2030
+  section      String          @default("A")         // "A", "B", "C"
+  maxCapacity  Int             @default(60) @map("max_capacity")
+  isActive     Boolean         @default(true) @map("is_active")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program      AcademicProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  students     StudentProfile[]
+
+  @@unique([tenantId, programId, academicYear, section])
+  @@index([tenantId, programId])
+  @@map("cohort_batches")
+}
+
+// ------------------------------------------------------------------------------
+// Applicant KYC Record & Verification Queue
+// ------------------------------------------------------------------------------
+
+model OnboardingApplicant {
+  id                       String           @id @default(uuid(7))
+  tenantId                 String           @map("tenant_id")
+  type                     OnboardingType   @default(STUDENT)
+  status                   OnboardingStatus @default(DRAFT)
+  
+  // Personal Details
+  firstName                String           @map("first_name")
+  lastName                 String           @map("last_name")
+  email                    String
+  phone                    String
+  dateOfBirth              String           @map("date_of_birth") // YYYY-MM-DD
+  gender                   Gender           @default(MALE)
+  bloodGroup               String?          @map("blood_group")
+  nationality              String           @default("Indian")
+  
+  // Emergency Contact
+  emergencyContactName     String           @map("emergency_contact_name")
+  emergencyContactPhone    String           @map("emergency_contact_phone")
+  emergencyContactRelation String           @map("emergency_contact_relation")
+  
+  // Address
+  addressLine1             String           @map("address_line1")
+  addressLine2             String?          @map("address_line2")
+  city                     String
+  state                    String
+  postalCode               String           @map("postal_code")
+  country                  String           @default("India")
+  
+  // Academic / Employment Targeting
+  programId                String?          @map("program_id")
+  departmentId             String?          @map("department_id")
+  academicYear             String           @map("academic_year") // e.g. "2026-2027"
+  targetDesignation        String?          @map("target_designation") // For Staff/Faculty
+  
+  // Guardian Information (For Students)
+  guardianName             String?          @map("guardian_name")
+  guardianEmail            String?          @map("guardian_email")
+  guardianPhone            String?          @map("guardian_phone")
+  guardianRelation         String?          @map("guardian_relation")
+  
+  // Reviewer / Audit state
+  reviewerId               String?          @map("reviewer_id")
+  reviewedAt               DateTime?        @map("reviewed_at")
+  rejectionReason          String?          @map("rejection_reason")
+  
+  tenant                   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program                  AcademicProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  department               AcademicDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  reviewer                 User?            @relation("ApplicantReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  documents                OnboardingDocument[]
+  studentProfile           StudentProfile?
+  staffProfile             StaffProfile?
+
+  createdAt                DateTime         @default(now()) @map("created_at")
+  updatedAt                DateTime         @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+  @@index([tenantId, email])
+  @@map("onboarding_applicants")
+}
+
+// ------------------------------------------------------------------------------
+// Document Attachments
+// ------------------------------------------------------------------------------
+
+model OnboardingDocument {
+  id              String         @id @default(uuid(7))
+  tenantId        String         @map("tenant_id")
+  applicantId     String         @map("applicant_id")
+  documentType    DocumentType   @map("document_type")
+  fileKey         String         @map("file_key")
+  fileName        String         @map("file_name")
+  fileSize        Int            @map("file_size")
+  mimeType        String         @map("mime_type")
+  status          DocumentStatus @default(PENDING_REVIEW)
+  rejectionReason String?        @map("rejection_reason")
+  verifiedById    String?        @map("verified_by_id")
+  verifiedAt      DateTime?      @map("verified_at")
+
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  applicant       OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  verifiedBy      User?          @relation("DocumentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@unique([applicantId, documentType])
+  @@index([tenantId, applicantId])
+  @@map("onboarding_documents")
+}
+
+// ------------------------------------------------------------------------------
+// Enrolled Institutional Profiles
+// ------------------------------------------------------------------------------
+
+model StudentProfile {
+  id                 String          @id @default(uuid(7))
+  tenantId           String          @map("tenant_id")
+  userId             String          @unique @map("user_id")
+  applicantId        String          @unique @map("applicant_id")
+  rollNumber         String          @map("roll_number")
+  registrationNumber String          @map("registration_number")
+  programId          String          @map("program_id")
+  cohortId           String          @map("cohort_id")
+  currentSemester    Int             @default(1) @map("current_semester")
+  enrollmentDate     DateTime        @default(now()) @map("enrollment_date")
+
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicant          OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  program            AcademicProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+  cohort             CohortBatch     @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  @@unique([tenantId, rollNumber])
+  @@unique([tenantId, registrationNumber])
+  @@index([tenantId, programId])
+  @@index([tenantId, cohortId])
+  @@map("student_profiles")
+}
+
+model StaffProfile {
+  id           String             @id @default(uuid(7))
+  tenantId     String             @map("tenant_id")
+  userId       String             @unique @map("user_id")
+  applicantId  String             @unique @map("applicant_id")
+  employeeId   String             @map("employee_id")
+  departmentId String             @map("department_id")
+  designation  String             // e.g. "Assistant Professor", "Senior Warden", "Catalog Librarian"
+  roleKey      String             @map("role_key") // e.g. "faculty", "warden", "librarian", "admin"
+  joiningDate  DateTime           @default(now()) @map("joining_date")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicant    OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  department   AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@unique([tenantId, employeeId])
+  @@index([tenantId, departmentId])
+  @@map("staff_profiles")
+}
+
+// ------------------------------------------------------------------------------
+// Deterministic Atomic Sequence Reservation Engine
+// ------------------------------------------------------------------------------
+
+model IdentitySequenceCounter {
+  id           String   @id @default(uuid(7))
+  tenantId     String   @map("tenant_id")
+  sequenceType String   @map("sequence_type") // e.g. "ROLL_NUMBER", "EMPLOYEE_ID"
+  prefix       String   // e.g. "2026-BTECH_CSE", "EMP-CSE"
+  lastSequence Int      @default(0) @map("last_sequence")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sequenceType, prefix])
+  @@map("identity_sequence_counters")
 }
 
