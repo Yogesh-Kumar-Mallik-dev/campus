@@ -9,24 +9,37 @@
 ## 1. Core Architectural Tenets
 
 ```mermaid
-mindmap
-  root((Engineering Philosophy))
-    Open-Closed Principle
-      Extensible via Contracts
-      Zero Modification to Existing Core
-      Event-Driven Decoupling
-    Subsystem Isolation
-      Bounded Domain Contexts
-      Zero Cross-Database Joins
-      Explicit DI Interfaces
-    Single-Subsystem Craftsmanship
-      Full Stack Perfection
-      100% Domain Test Coverage
-      Zero Stubs or TODOs
-    Resilience & Security
-      Zero-Trust Multi-Tenancy
-      RFC 7807 Error Contracts
-      Mobile-First 280px-4K Fluidity
+flowchart TD
+    Root["<b>Campus Engineering Philosophy</b>"]
+
+    subgraph P1["Open-Closed Principle"]
+        C1["Extensible via Contracts"]
+        C2["Zero Modification to Core"]
+        C3["Event-Driven Decoupling"]
+    end
+
+    subgraph P2["Subsystem Isolation"]
+        C4["Bounded Domain Contexts"]
+        C5["Zero Cross-Database Joins"]
+        C6["Explicit DI Interfaces"]
+    end
+
+    subgraph P3["Single-System Craftsmanship"]
+        C7["Full Stack Depth"]
+        C8["100% Domain Test Coverage"]
+        C9["Zero Stubs or Placeholders"]
+    end
+
+    subgraph P4["Resilience & Standards"]
+        C10["Zero-Trust Multi-Tenancy"]
+        C11["RFC 7807 Error Contracts"]
+        C12["Mobile-First 280px-4K Fluidity"]
+    end
+
+    Root --> P1
+    Root --> P2
+    Root --> P3
+    Root --> P4
 ```
 
 ---

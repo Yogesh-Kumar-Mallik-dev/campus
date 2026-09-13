@@ -19,30 +19,46 @@ Built upon strict software engineering standards, the platform adheres to zero-t
 ## 2. Core Subsystems Catalog
 
 ```mermaid
-mindmap
-  root((Campus Management System))
-    Identity & Governance
-      Central Auth & IAM [auth]
-      Student & Staff Registration [onboarding]
-      Central Audit & Compliance [audit]
-    Academic & Student Life
-      Attendance Management [attendance]
-      Study Hub System [studyhub]
-      E-Library System [library]
-      Progress Tracker & Mentorship [mentorship]
-    Campus Operations & Logistics
-      Hostel Management [hostel]
-      Mess Management [mess]
-      Event Organisation [events]
-      Central Payment & Billing [billing]
-    Communication & Safety
-      Notice & Announcement [notices]
-      Helpdesk & Query Resolution [helpdesk]
-      SOS & Emergency Response [sos]
-      Anonymity & Whistleblower [whistleblower]
-    Portals & Institutional Shells
-      Public Web Portal [portal]
-      The Hub (Root Super-App Shell) [hub]
+flowchart TD
+    Root["<b>Campus Management System</b>"]
+
+    subgraph G1["1. Identity & Governance"]
+        S1["Central Auth & Permissions (auth)"]
+        S2["Student & Staff Registration (onboarding)"]
+        S3["Central Audit & Compliance (audit)"]
+    end
+
+    subgraph G2["2. Academic & Student Life"]
+        S4["Attendance Management (attendance)"]
+        S5["Study Hub System (studyhub)"]
+        S6["E-Library System (library)"]
+        S7["Progress Tracker & Mentorship (mentorship)"]
+    end
+
+    subgraph G3["3. Operations & Logistics"]
+        S8["Hostel Management (hostel)"]
+        S9["Mess Management (mess)"]
+        S10["Event Organisation (events)"]
+        S11["Central Payment & Billing (billing)"]
+    end
+
+    subgraph G4["4. Safety & Communication"]
+        S12["Notice & Announcement (notices)"]
+        S13["Helpdesk & Query Resolution (helpdesk)"]
+        S14["SOS & Emergency Response (sos)"]
+        S15["Anonymity & Whistleblower (whistleblower)"]
+    end
+
+    subgraph G5["5. Portals & Institutional Shells"]
+        S16["Public Web Portal (portal)"]
+        S17["The Hub Root Super-App Shell (hub)"]
+    end
+
+    Root --> G1
+    Root --> G2
+    Root --> G3
+    Root --> G4
+    Root --> G5
 ```
 
 ### Subsystems Breakdown
