@@ -25,11 +25,13 @@ import (
 	attendancehttp "campus/api/http/attendance"
 	audithttp "campus/api/http/audit"
 	authhttp "campus/api/http/auth"
+	billinghttp "campus/api/http/billing"
 	onboardinghttp "campus/api/http/onboarding"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
 	"campus/backend/auth"
+	"campus/backend/billing"
 	"campus/backend/onboarding"
 )
 
@@ -154,11 +156,28 @@ func main() {
 	)
 	attendanceHandler := attendancehttp.NewHandler(attendanceService)
 
-	// 5. Initialize HTTP Handlers & Middlewares
+	// 5. Initialize Rank 5: Central Payment & Billing System
+	billingFeeRepo := billing.NewMockFeeRepository()
+	billingInvoiceRepo := billing.NewMockInvoiceRepository()
+	billingPaymentRepo := billing.NewMockPaymentRepository()
+	billingLedgerRepo := billing.NewMockLedgerRepository()
+	billingSeqRepo := billing.NewMockSequenceRepository()
+
+	billingService := billing.NewService(
+		billingFeeRepo,
+		billingInvoiceRepo,
+		billingPaymentRepo,
+		billingLedgerRepo,
+		billingSeqRepo,
+		auditSubscriber,
+	)
+	billingHandler := billinghttp.NewHandler(billingService)
+
+	// 6. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 6. Build Chi Router Pipeline
+	// 7. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -190,6 +209,7 @@ func main() {
 	audithttp.RegisterRoutes(r, auditService)
 	onboardingHandler.RegisterRoutes(r)
 	attendanceHandler.RegisterRoutes(r)
+	billingHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

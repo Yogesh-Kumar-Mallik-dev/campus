@@ -10,7 +10,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ------------------------------------------------------------------------------
@@ -132,6 +131,58 @@ enum DayOfWeek {
   SUNDAY
 }
 
+enum FeeCategory {
+  TUITION
+  ADMISSION
+  EXAMINATION
+  HOSTEL
+  MESS
+  LIBRARY
+  TRANSPORTATION
+  LABORATORY
+  MISCELLANEOUS
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  WRITTEN_OFF
+}
+
+enum PaymentStatus {
+  INITIATED
+  PROCESSING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  ONLINE_GATEWAY
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  CASH
+  SCHOLARSHIP_WAIVER
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -163,6 +214,11 @@ model Tenant {
   attendanceSessions AttendanceSession[]
   attendanceRecords  AttendanceRecord[]
   medicalLeaves      MedicalLeaveApplication[]
+  feeStructures      FeeStructure[]
+  studentInvoices    StudentInvoice[]
+  paymentTransactions PaymentTransaction[]
+  ledgerAccounts     LedgerAccount[]
+  ledgerEntries      LedgerEntry[]
 
   @@map("tenants")
 }
@@ -458,6 +514,7 @@ model AcademicProgram {
   applicants     OnboardingApplicant[]
   students       StudentProfile[]
   subjects       CourseSubject[]
+  feeStructures  FeeStructure[]
 
   @@unique([tenantId, code])
   @@index([tenantId, departmentId])
@@ -609,6 +666,8 @@ model StudentProfile {
   cohort             CohortBatch     @relation(fields: [cohortId], references: [id], onDelete: Restrict)
   attendanceRecords  AttendanceRecord[]
   medicalLeaves      MedicalLeaveApplication[]
+  invoices           StudentInvoice[]
+  paymentTransactions PaymentTransaction[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -795,4 +854,164 @@ model MedicalLeaveApplication {
   @@index([tenantId, studentId, status])
   @@map("medical_leave_applications")
 }
+
+// ------------------------------------------------------------------------------
+// Subsystem: Rank 5 - Central Payment & Billing System (billing)
+// ------------------------------------------------------------------------------
+
+model FeeStructure {
+  id           String             @id @default(uuid(7))
+  tenantId     String             @map("tenant_id")
+  programId    String             @map("program_id")
+  academicYear String             @map("academic_year") // "2026-2027"
+  semester     Int
+  name         String
+  totalAmount  Int                @map("total_amount") // Smallest currency unit (cents/paise)
+  currency     String             @default("INR")
+  dueDate      String             @map("due_date")     // YYYY-MM-DD
+  isActive     Boolean            @default(true) @map("is_active")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program      AcademicProgram    @relation(fields: [programId], references: [id], onDelete: Restrict)
+  items        FeeStructureItem[]
+  invoices     StudentInvoice[]
+
+  @@unique([tenantId, programId, academicYear, semester])
+  @@map("fee_structures")
+}
+
+model FeeStructureItem {
+  id             String       @id @default(uuid(7))
+  tenantId       String       @map("tenant_id")
+  feeStructureId String       @map("fee_structure_id")
+  category       FeeCategory
+  name           String
+  amount         Int
+  isOptional     Boolean      @default(false) @map("is_optional")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+
+  @@index([feeStructureId])
+  @@map("fee_structure_items")
+}
+
+model StudentInvoice {
+  id              String               @id @default(uuid(7))
+  tenantId        String               @map("tenant_id")
+  studentId       String               @map("student_id") // StudentProfile ID
+  feeStructureId  String?              @map("fee_structure_id")
+  invoiceNumber   String               @map("invoice_number") // e.g. INV-2026-000001
+  academicYear    String               @map("academic_year")
+  semester        Int
+  subtotalAmount  Int                  @map("subtotal_amount")
+  discountAmount  Int                  @default(0) @map("discount_amount")
+  taxAmount       Int                  @default(0) @map("tax_amount")
+  totalAmount     Int                  @map("total_amount")
+  paidAmount      Int                  @default(0) @map("paid_amount")
+  balanceAmount   Int                  @map("balance_amount")
+  dueDate         String               @map("due_date")
+  status          InvoiceStatus        @default(ISSUED)
+  notes           String?
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         StudentProfile       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeStructure    FeeStructure?        @relation(fields: [feeStructureId], references: [id], onDelete: SetNull)
+  items           InvoiceItem[]
+  transactions    PaymentTransaction[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, studentId, status])
+  @@map("student_invoices")
+}
+
+model InvoiceItem {
+  id         String         @id @default(uuid(7))
+  tenantId   String         @map("tenant_id")
+  invoiceId  String         @map("invoice_id")
+  category   FeeCategory
+  name       String
+  amount     Int
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  invoice    StudentInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model PaymentTransaction {
+  id               String          @id @default(uuid(7))
+  tenantId         String          @map("tenant_id")
+  invoiceId        String          @map("invoice_id")
+  studentId        String          @map("student_id")
+  transactionRef   String          @map("transaction_ref") // TXN-2026-000001
+  gatewayName      String          @default("INTERNAL") @map("gateway_name")
+  gatewayOrderId   String?         @map("gateway_order_id")
+  gatewayPaymentId String?         @map("gateway_payment_id")
+  amount           Int
+  currency         String          @default("INR")
+  method           PaymentMethod   @default(ONLINE_GATEWAY)
+  status           PaymentStatus   @default(INITIATED)
+  idempotencyKey   String?         @map("idempotency_key")
+  receiptNumber    String?         @map("receipt_number") // REC-2026-000001
+  failureReason    String?         @map("failure_reason")
+  paidAt           DateTime?       @map("paid_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice          StudentInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  student          StudentProfile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  ledgerEntries    LedgerEntry[]
+
+  @@unique([tenantId, transactionRef])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, studentId])
+  @@map("payment_transactions")
+}
+
+model LedgerAccount {
+  id          String            @id @default(uuid(7))
+  tenantId    String            @map("tenant_id")
+  code        String            // "1000-CASH", "2000-AR", "4000-TUITION"
+  name        String
+  type        LedgerAccountType
+  balance     Int               @default(0) // Running balance in smallest currency unit
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entries     LedgerEntry[]
+
+  @@unique([tenantId, code])
+  @@map("ledger_accounts")
+}
+
+model LedgerEntry {
+  id            String              @id @default(uuid(7))
+  tenantId      String              @map("tenant_id")
+  transactionId String?             @map("transaction_id")
+  accountId     String              @map("account_id")
+  entryType     LedgerEntryType     @map("entry_type")
+  amount        Int
+  description   String
+  postedAt      DateTime            @default(now()) @map("posted_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transaction   PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  account       LedgerAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, accountId, postedAt])
+  @@map("ledger_entries")
+}
+
 
