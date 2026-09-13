@@ -4,3 +4,8 @@ packages:
   - 'frontend/desktop'
   - 'frontend/packages/*'
   - 'database'
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true

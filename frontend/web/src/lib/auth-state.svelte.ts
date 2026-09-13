@@ -67,7 +67,7 @@ class AuthState {
       return { requiresMFA: false };
     } catch (err) {
       if (err instanceof ApiError) {
-        this.errorMessage = err.detail || err.title;
+        this.errorMessage = err.detail || err.title || 'Authentication error';
       } else {
         this.errorMessage = 'Failed to connect to authentication gateway';
       }
