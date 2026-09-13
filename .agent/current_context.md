@@ -68,9 +68,9 @@ The Campus Management System is an enterprise-grade platform unifying 17 core ca
 - **Completed Subsystems & Infrastructure:**
   - **Rank 1: Central Auth & Permissions System (IAM)** (`auth`) & **Universal API Gateway & Transport Layer** — 100% Complete & Verified.
   - **Rank 2: Central Audit & Compliance System** (`audit`) — 100% Complete & Verified.
-  - **3 Frontends Feature Parity & Tooling (Web, Mobile, Desktop):**
-    - **Web (SvelteKit 2 + Svelte 5 + Vite 6):** Configured `svelte.config.js`, `vite.config.ts`, `src/app.html`, and full feature routes: The Hub Home (`/`), Auth Login with TOTP (`/auth/login`), Audit Ledger Explorer with chain verification (`/audit`), and Compliance & Accreditation Reports (`/audit/compliance`).
-    - **Mobile (React Native + Expo Router):** Configured `app.json`, root layouts, auth screens (`app/(auth)/login.tsx`), The Hub Dashboard (`app/(app)/index.tsx`), Mobile Audit Trail with live status & inspection (`app/(app)/audit.tsx`), and Accreditation Reports (`app/(app)/compliance.tsx`).
+  - **3 Frontends Feature Parity & UI Modernization (Web, Mobile, Desktop):**
+    - **Web (SvelteKit 2 + Svelte 5 + Vite 6 + shadcn-svelte):** Upgraded UI architecture with complete shadcn-svelte component library, unified OKLCH theme and dark mode toggling (`+layout.css`), and modernized views: The Hub Home (`/`), Auth Login with TOTP (`/auth/login`), Audit Ledger Explorer (`/audit`), and Institutional Accreditation Reports (`/audit/compliance`).
+    - **Mobile (React Native + Expo Router):** Configured `app.json`, root layouts, auth screens (`app/(auth)/login.tsx`), The Hub Dashboard (`app/(app)/index.tsx`), Mobile Audit Trail (`app/(app)/audit.tsx`), and Accreditation Reports (`app/(app)/compliance.tsx`).
     - **Desktop (Tauri 2):** Configured `src-tauri/tauri.conf.json`, `Cargo.toml`, and native Rust entrypoints (`lib.rs`, `main.rs`) wrapping the SvelteKit frontend.
   - **Universal Lifecycle Scripts & Verification:**
     - Updated `./script.sh build`, `dev`, `check`, `test`, `deps` with Vite 6 SvelteKit compilation, Go backend server build, `go vet`, and `svelte-check` (0 errors, 0 warnings).

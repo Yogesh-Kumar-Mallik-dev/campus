@@ -5,6 +5,11 @@
    * Purpose:   Interactive, searchable, tamper-evident audit ledger explorer with hash chain validation.
    * Viewports: Responsive across mobile cards (280px+) to wide desktop data table (4K).
    */
+  import * as Table from '$lib/components/ui/table';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from '$lib/components/ui/button';
+  import { Input } from '$lib/components/ui/input';
+  import * as Card from '$lib/components/ui/card';
 
   export interface AuditLogItem {
     id: string;
@@ -61,17 +66,17 @@
   <!-- Controls Bar -->
   <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
     <div class="flex flex-1 gap-2 items-center">
-      <input
+      <Input
         type="text"
-        placeholder="Filter by action or keyword (e.g. auth:login)..."
+        placeholder="Filter by action keyword (e.g. auth:login)..."
         value={searchQuery}
         oninput={handleSearchInput}
-        class="w-full sm:max-w-xs h-10 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+        class="w-full sm:max-w-xs h-10 text-sm bg-card"
       />
       <select
         value={statusFilter}
         onchange={handleStatusChange}
-        class="h-10 px-3 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+        class="h-10 px-3 rounded-lg border border-border text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="">All Statuses</option>
         <option value="SUCCESS">SUCCESS</option>
@@ -81,172 +86,177 @@
     </div>
 
     <div class="flex items-center gap-2">
-      <button
+      <Button
         onclick={onVerifyChain}
-        class="h-10 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold tracking-wide uppercase transition flex items-center gap-1.5 shadow-sm"
+        class="h-10 gap-2 font-semibold text-xs uppercase tracking-wider"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
         </svg>
         Verify Hash Chain
-      </button>
+      </Button>
     </div>
   </div>
 
   <!-- Table (Desktop) / Cards (Mobile) -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <Card.Root class="border-border bg-card overflow-hidden">
     {#if isLoading}
-      <div class="p-8 text-center text-slate-500 text-sm">
+      <div class="p-8 text-center text-muted-foreground text-sm">
         <span class="animate-spin inline-block mr-2">⟳</span> Loading audit ledger entries...
       </div>
     {:else if logs.length === 0}
-      <div class="p-8 text-center text-slate-500 text-sm">
+      <div class="p-8 text-center text-muted-foreground text-sm">
         No audit entries match the current filter criteria.
       </div>
     {:else}
       <div class="hidden md:block overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-            <tr>
-              <th class="px-4 py-3">Timestamp (UTC)</th>
-              <th class="px-4 py-3">Action</th>
-              <th class="px-4 py-3">Actor</th>
-              <th class="px-4 py-3">Resource</th>
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3 font-mono">Hash (SHA-256)</th>
-              <th class="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
+        <Table.Root>
+          <Table.Header>
+            <Table.Row class="hover:bg-transparent">
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground">Timestamp (UTC)</Table.Head>
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground">Action</Table.Head>
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground">Actor</Table.Head>
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground">Resource</Table.Head>
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground">Status</Table.Head>
+              <Table.Head class="text-xs uppercase font-bold text-muted-foreground font-mono">Hash (SHA-256)</Table.Head>
+              <Table.Head class="text-right text-xs uppercase font-bold text-muted-foreground">Inspect</Table.Head>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
             {#each logs as log (log.id)}
-              <tr class="hover:bg-slate-50/70 transition">
-                <td class="px-4 py-3 text-slate-600 whitespace-nowrap text-xs">
+              <Table.Row>
+                <Table.Cell class="text-xs text-muted-foreground whitespace-nowrap">
                   {new Date(log.created_at).toLocaleString()}
-                </td>
-                <td class="px-4 py-3 font-mono font-medium text-slate-900 text-xs">
+                </Table.Cell>
+                <Table.Cell class="font-mono font-semibold text-xs text-foreground">
                   {log.action}
-                </td>
-                <td class="px-4 py-3 text-slate-700 text-xs">
+                </Table.Cell>
+                <Table.Cell class="text-xs text-foreground">
                   <span class="font-medium">{log.actor_id || 'System'}</span>
                   {#if log.actor_role}
-                    <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase font-semibold">
+                    <Badge variant="secondary" class="ml-1 text-[10px] py-0 font-bold uppercase">
                       {log.actor_role}
-                    </span>
+                    </Badge>
                   {/if}
-                </td>
-                <td class="px-4 py-3 text-slate-600 text-xs">
+                </Table.Cell>
+                <Table.Cell class="text-xs text-muted-foreground">
                   {log.resource_type}{log.resource_id ? `:${log.resource_id}` : ''}
-                </td>
-                <td class="px-4 py-3 text-xs">
+                </Table.Cell>
+                <Table.Cell>
                   {#if log.status === 'SUCCESS'}
-                    <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                    <Badge variant="default" class="text-[10px] font-bold">
                       SUCCESS
-                    </span>
+                    </Badge>
                   {:else if log.status === 'FAILURE'}
-                    <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-800">
+                    <Badge variant="destructive" class="text-[10px] font-bold">
                       FAILURE
-                    </span>
+                    </Badge>
                   {:else}
-                    <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">
+                    <Badge variant="outline" class="text-[10px] font-bold">
                       {log.status}
-                    </span>
+                    </Badge>
                   {/if}
-                </td>
-                <td class="px-4 py-3 font-mono text-[11px] text-slate-500 truncate max-w-[120px]" title={log.hash}>
+                </Table.Cell>
+                <Table.Cell class="font-mono text-[11px] text-muted-foreground truncate max-w-[120px]" title={log.hash}>
                   {log.hash.substring(0, 10)}...
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <button
+                </Table.Cell>
+                <Table.Cell class="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onclick={() => selectedLog = log}
-                    class="text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+                    class="text-xs font-semibold text-primary"
                   >
-                    Inspect
-                  </button>
-                </td>
-              </tr>
+                    View
+                  </Button>
+                </Table.Cell>
+              </Table.Row>
             {/each}
-          </tbody>
-        </table>
+          </Table.Body>
+        </Table.Root>
       </div>
 
       <!-- Mobile Card View -->
-      <div class="md:hidden divide-y divide-slate-100">
+      <div class="md:hidden divide-y divide-border">
         {#each logs as log (log.id)}
           <div class="p-4 space-y-2">
             <div class="flex items-center justify-between">
-              <span class="font-mono text-xs font-bold text-slate-900">{log.action}</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+              <span class="font-mono text-xs font-bold text-foreground">{log.action}</span>
+              <Badge variant={log.status === 'SUCCESS' ? 'default' : 'destructive'} class="text-[10px]">
                 {log.status}
-              </span>
+              </Badge>
             </div>
-            <div class="text-xs text-slate-500 flex justify-between">
+            <div class="text-xs text-muted-foreground flex justify-between">
               <span>Actor: {log.actor_id || 'System'}</span>
               <span>{new Date(log.created_at).toLocaleTimeString()}</span>
             </div>
             <div class="flex justify-between items-center pt-1">
-              <span class="text-[10px] font-mono text-slate-400">Hash: {log.hash.substring(0, 8)}...</span>
-              <button
+              <span class="text-[10px] font-mono text-muted-foreground">Hash: {log.hash.substring(0, 8)}...</span>
+              <Button
+                variant="link"
+                size="sm"
                 onclick={() => selectedLog = log}
-                class="text-xs font-medium text-blue-600"
+                class="text-xs p-0 h-auto"
               >
-                View Details →
-              </button>
+                Inspect →
+              </Button>
             </div>
           </div>
         {/each}
       </div>
     {/if}
 
-    <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+    <div class="px-4 py-3 bg-muted/40 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
       <span>Showing {logs.length} of {total} records</span>
-      <span class="text-[11px] font-mono">Immutable SHA-256 Chained</span>
+      <span class="text-[11px] font-mono">Immutable SHA-256 Merkle Chain</span>
     </div>
-  </div>
+  </Card.Root>
 
   <!-- Detail Modal -->
   {#if selectedLog}
-    <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl space-y-4">
-        <div class="flex items-center justify-between border-b pb-3">
-          <h3 class="text-base font-bold text-slate-900">Audit Record Inspector</h3>
-          <button onclick={() => selectedLog = null} class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-card border border-border rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-border pb-3">
+          <h3 class="text-base font-bold text-foreground">Audit Record Inspector</h3>
+          <button onclick={() => selectedLog = null} class="text-muted-foreground hover:text-foreground text-lg font-bold">✕</button>
         </div>
 
         <div class="grid grid-cols-2 gap-4 text-xs">
-          <div><strong class="text-slate-500">Record ID:</strong> <span class="font-mono">{selectedLog.id}</span></div>
-          <div><strong class="text-slate-500">Tenant ID:</strong> <span class="font-mono">{selectedLog.tenant_id}</span></div>
-          <div><strong class="text-slate-500">Action:</strong> <span class="font-mono font-semibold">{selectedLog.action}</span></div>
-          <div><strong class="text-slate-500">Status:</strong> {selectedLog.status}</div>
-          <div><strong class="text-slate-500">Actor:</strong> {selectedLog.actor_id || 'System'} ({selectedLog.actor_type})</div>
-          <div><strong class="text-slate-500">Trace ID:</strong> <span class="font-mono">{selectedLog.trace_id || 'N/A'}</span></div>
-          <div><strong class="text-slate-500">IP Address:</strong> {selectedLog.ip_address || 'N/A'}</div>
-          <div><strong class="text-slate-500">Created:</strong> {new Date(selectedLog.created_at).toISOString()}</div>
+          <div><strong class="text-muted-foreground">Record ID:</strong> <span class="font-mono">{selectedLog.id}</span></div>
+          <div><strong class="text-muted-foreground">Tenant ID:</strong> <span class="font-mono">{selectedLog.tenant_id}</span></div>
+          <div><strong class="text-muted-foreground">Action:</strong> <span class="font-mono font-semibold">{selectedLog.action}</span></div>
+          <div><strong class="text-muted-foreground">Status:</strong> {selectedLog.status}</div>
+          <div><strong class="text-muted-foreground">Actor:</strong> {selectedLog.actor_id || 'System'} ({selectedLog.actor_type})</div>
+          <div><strong class="text-muted-foreground">Trace ID:</strong> <span class="font-mono">{selectedLog.trace_id || 'N/A'}</span></div>
+          <div><strong class="text-muted-foreground">IP Address:</strong> {selectedLog.ip_address || 'N/A'}</div>
+          <div><strong class="text-muted-foreground">Created:</strong> {new Date(selectedLog.created_at).toISOString()}</div>
         </div>
 
         <div class="space-y-1">
-          <span class="text-xs font-semibold text-slate-700">Cryptographic Hash Signature:</span>
-          <p class="p-2 bg-slate-100 rounded text-[11px] font-mono break-all text-slate-800">{selectedLog.hash}</p>
+          <span class="text-xs font-semibold text-foreground">Cryptographic Hash Signature:</span>
+          <p class="p-2.5 bg-muted rounded-lg text-[11px] font-mono break-all text-foreground">{selectedLog.hash}</p>
         </div>
 
         <div class="space-y-1">
-          <span class="text-xs font-semibold text-slate-700">Previous Record Hash (prev_hash):</span>
-          <p class="p-2 bg-slate-100 rounded text-[11px] font-mono break-all text-slate-600">{selectedLog.prev_hash || 'Genesis'}</p>
+          <span class="text-xs font-semibold text-foreground">Previous Record Hash (prev_hash):</span>
+          <p class="p-2.5 bg-muted rounded-lg text-[11px] font-mono break-all text-muted-foreground">{selectedLog.prev_hash || 'Genesis'}</p>
         </div>
 
         {#if selectedLog.metadata}
           <div class="space-y-1">
-            <span class="text-xs font-semibold text-slate-700">Contextual Metadata:</span>
-            <pre class="p-2.5 bg-slate-950 text-slate-100 rounded text-[11px] font-mono overflow-x-auto">{JSON.stringify(selectedLog.metadata, null, 2)}</pre>
+            <span class="text-xs font-semibold text-foreground">Contextual Metadata:</span>
+            <pre class="p-3 bg-muted rounded-lg text-[11px] font-mono overflow-x-auto text-foreground">{JSON.stringify(selectedLog.metadata, null, 2)}</pre>
           </div>
         {/if}
 
         <div class="pt-2 text-right">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onclick={() => selectedLog = null}
-            class="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-xs font-semibold text-slate-800"
           >
             Close
-          </button>
+          </Button>
         </div>
       </div>
     </div>

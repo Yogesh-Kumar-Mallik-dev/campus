@@ -4,6 +4,10 @@
 	 * Purpose: The Hub Root Shell overview screen displaying accessible institutional workspaces.
 	 */
 	import { authState } from '$lib/auth-state.svelte';
+	import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '$lib/components/ui/card';
+	import { Badge } from '$lib/components/ui/badge';
+	import { buttonVariants } from '$lib/components/ui/button';
+	import { cn } from '$lib/utils';
 
 	const workspaces = [
 		{ id: 'student_hub', title: 'Student Hub', desc: 'Courses, timetable, attendance, assignments, mess dining', icon: '🎓', path: '/student' },
@@ -17,59 +21,64 @@
 
 <div class="space-y-8">
 	<!-- Hero Section -->
-	<div class="p-8 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-		<div class="space-y-2">
-			<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-				<span>●</span> Rank 1 IAM & Rank 2 Audit Active
+	<Card class="p-4 sm:p-6 shadow-sm border-border">
+		<div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+			<div class="space-y-3">
+				<Badge variant="outline" class="gap-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+					<span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+					Rank 1 IAM & Rank 2 Audit Active
+				</Badge>
+				<h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+					The Hub — Universal Campus Shell
+				</h1>
+				<p class="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+					Unified access gateway for 17 campus subsystems. Single sign-on with scoped personas,
+					tamper-evident audit logging, and role-specialized workspaces.
+				</p>
 			</div>
-			<h1 class="text-3xl font-extrabold tracking-tight text-slate-900">
-				The Hub — Universal Campus Shell
-			</h1>
-			<p class="text-sm text-slate-600 max-w-2xl">
-				Unified access gateway for 17 campus subsystems. Single sign-on with scoped personas,
-				tamper-evident audit logging, and role-specialized workspaces.
-			</p>
-		</div>
 
-		<div class="flex flex-col sm:flex-row gap-3">
-			<a
-				href="/audit"
-				class="h-11 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center transition shadow-sm"
-			>
-				Explore Audit Ledger
-			</a>
-			<a
-				href="/audit/compliance"
-				class="h-11 px-5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center transition"
-			>
-				Accreditation Reports
-			</a>
+			<div class="flex flex-col sm:flex-row gap-3 shrink-0">
+				<a
+					href="/audit"
+					class={cn(buttonVariants({ variant: 'default' }), 'font-semibold')}
+				>
+					Explore Audit Ledger
+				</a>
+				<a
+					href="/audit/compliance"
+					class={cn(buttonVariants({ variant: 'outline' }), 'font-semibold')}
+				>
+					Accreditation Reports
+				</a>
+			</div>
 		</div>
-	</div>
+	</Card>
 
 	<!-- Workspaces Grid -->
 	<div class="space-y-4">
 		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-bold text-slate-900">Institutional Workspaces</h2>
-			<span class="text-xs text-slate-500 font-mono">30,000 Total Capacity · 5,000 Peak Active</span>
+			<h2 class="text-lg font-bold tracking-tight text-foreground">Institutional Workspaces</h2>
+			<Badge variant="secondary" class="font-mono text-xs">
+				30,000 Capacity · 5,000 Peak Active
+			</Badge>
 		</div>
 
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
 			{#each workspaces as ws}
-				<div class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-slate-400 transition flex flex-col justify-between space-y-4">
-					<div class="space-y-2">
-						<div class="text-3xl">{ws.icon}</div>
-						<h3 class="text-base font-bold text-slate-900">{ws.title}</h3>
-						<p class="text-xs text-slate-500 leading-relaxed">{ws.desc}</p>
-					</div>
+				<Card class="hover:border-primary/50 transition duration-200 flex flex-col justify-between shadow-sm">
+					<CardHeader class="pb-3">
+						<div class="text-3xl mb-2">{ws.icon}</div>
+						<CardTitle class="text-base font-bold">{ws.title}</CardTitle>
+						<CardDescription class="text-xs leading-relaxed">{ws.desc}</CardDescription>
+					</CardHeader>
 
-					<div class="pt-2 border-t border-slate-100 flex items-center justify-between">
-						<span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Scoped Workspace</span>
-						<a href={ws.path} class="text-xs font-bold text-blue-600 hover:text-blue-800 transition">
+					<CardFooter class="pt-3 border-t border-border flex items-center justify-between">
+						<span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Scoped Workspace</span>
+						<a href={ws.path} class="text-xs font-bold text-primary hover:underline transition">
 							Launch Workspace →
 						</a>
-					</div>
-				</div>
+					</CardFooter>
+				</Card>
 			{/each}
 		</div>
 	</div>

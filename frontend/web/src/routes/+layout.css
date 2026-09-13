@@ -1,0 +1,284 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/roboto';
+@import '@fontsource-variable/outfit';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	--background: oklch(0.978 0.005 240);
+	--foreground: oklch(0.18 0.015 240);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.18 0.015 240);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.18 0.015 240);
+	--primary: oklch(0.48 0.18 27);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.938 0.008 240);
+	--secondary-foreground: oklch(0.22 0.012 240);
+	--muted: oklch(0.942 0.006 240);
+	--muted-foreground: oklch(0.48 0.018 240);
+	--accent: oklch(0.945 0.008 240);
+	--accent-foreground: oklch(0.18 0.015 240);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.895 0.008 240);
+	--input: oklch(0.895 0.008 240);
+	--ring: oklch(0.65 0.05 240);
+	--chart-1: oklch(0.833 0.145 321.434);
+	--chart-2: oklch(0.667 0.295 322.15);
+	--chart-3: oklch(0.591 0.293 322.896);
+	--chart-4: oklch(0.518 0.253 323.949);
+	--chart-5: oklch(0.452 0.211 324.591);
+	--radius: 0.45rem;
+	--sidebar: oklch(0.965 0.006 240);
+	--sidebar-foreground: oklch(0.18 0.015 240);
+	--sidebar-primary: oklch(0.48 0.18 27);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.935 0.008 240);
+	--sidebar-accent-foreground: oklch(0.18 0.015 240);
+	--sidebar-border: oklch(0.895 0.008 240);
+	--sidebar-ring: oklch(0.65 0.05 240);
+}
+
+.dark {
+	--background: oklch(0.16 0.018 242);
+	--foreground: oklch(0.97 0.004 225);
+	--card: oklch(0.205 0.02 240);
+	--card-foreground: oklch(0.97 0.004 225);
+	--popover: oklch(0.205 0.02 240);
+	--popover-foreground: oklch(0.97 0.004 225);
+	--primary: oklch(0.67 0.19 27);
+	--primary-foreground: oklch(0.985 0.003 25);
+	--secondary: oklch(0.27 0.018 239);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.255 0.018 239);
+	--muted-foreground: oklch(0.72 0.018 225);
+	--accent: oklch(0.285 0.024 239);
+	--accent-foreground: oklch(0.97 0.004 225);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(0.72 0.018 225 / 16%);
+	--input: oklch(0.72 0.018 225 / 22%);
+	--ring: oklch(0.67 0.19 27);
+	--chart-1: oklch(0.67 0.19 27);
+	--chart-2: oklch(0.72 0.1 225);
+	--chart-3: oklch(0.78 0.11 75);
+	--chart-4: oklch(0.58 0.12 245);
+	--chart-5: oklch(0.76 0.08 155);
+	--sidebar: oklch(0.185 0.02 240);
+	--sidebar-foreground: oklch(0.97 0.004 225);
+	--sidebar-primary: oklch(0.67 0.19 27);
+	--sidebar-primary-foreground: oklch(0.985 0.003 25);
+	--sidebar-accent: oklch(0.285 0.024 239);
+	--sidebar-accent-foreground: oklch(0.97 0.004 225);
+	--sidebar-border: oklch(0.72 0.018 225 / 16%);
+	--sidebar-ring: oklch(0.67 0.19 27);
+}
+
+@theme inline {
+	--font-sans: 'Roboto Variable', sans-serif;
+	--font-heading: 'Outfit Variable', sans-serif;
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+		box-sizing: border-box;
+	}
+	body {
+		@apply bg-background text-foreground;
+		margin: 0;
+		min-width: 0;
+		overflow-x: clip;
+		-webkit-tap-highlight-color: transparent;
+		padding-top: env(safe-area-inset-top, 0px);
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+		padding-left: env(safe-area-inset-left, 0px);
+		padding-right: env(safe-area-inset-right, 0px);
+	}
+	html {
+		@apply font-sans;
+		min-width: 0;
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+	}
+	main,
+	section,
+	div {
+		min-width: 0;
+	}
+	img,
+	svg,
+	video {
+		max-width: 100%;
+		height: auto;
+	}
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6,
+	p,
+	a,
+	button,
+	span {
+		overflow-wrap: anywhere;
+		word-break: normal;
+	}
+	button,
+	a,
+	input,
+	select,
+	textarea,
+	[role='button'] {
+		touch-action: manipulation;
+	}
+	html::-webkit-scrollbar,
+	body::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+}
+
+/* Continuous responsive sizing for non-standard mobile and Android screens (< 480px and < 360px) */
+@media (max-width: 479px) {
+	[data-slot='card-header'],
+	[data-slot='card-content'],
+	[data-slot='card-footer'] {
+		padding-inline: clamp(0.75rem, 4vw, 1.25rem);
+		padding-block: clamp(0.75rem, 3.5vw, 1.25rem);
+	}
+	[data-slot='empty'] {
+		padding-inline: clamp(0.75rem, 4vw, 1.25rem);
+	}
+}
+
+/* Ultra-narrow and foldable cover screens (Galaxy Fold outer, 320px-359px) */
+@media (max-width: 359px) {
+	.px-4 {
+		padding-left: 0.625rem !important;
+		padding-right: 0.625rem !important;
+	}
+	.py-8 {
+		padding-top: 1rem !important;
+		padding-bottom: 1rem !important;
+	}
+	.gap-4 {
+		gap: 0.625rem !important;
+	}
+	.gap-6 {
+		gap: 0.875rem !important;
+	}
+}
+
+/* Component defaults use inline-flex; page-level grid tab lists must win. */
+[data-slot='tabs-list'].grid {
+	display: grid !important;
+	height: auto !important;
+}
+
+/* Responsive TabsList: smoothly scrollable horizontally without wrapping or shrinking tabs on narrow Android viewports */
+[data-slot='tabs-list'] {
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+[data-slot='tabs-list']::-webkit-scrollbar {
+	display: none;
+	width: 0;
+	height: 0;
+}
+
+/* Responsive Modal Dialogs: Never exceed viewport width or height on any mobile screen */
+[data-slot='dialog-content'],
+[data-slot='alert-dialog-content'] {
+	width: min(calc(100vw - 1rem), 36rem) !important;
+	max-width: calc(100vw - 1rem) !important;
+	max-height: calc(100dvh - 1.5rem) !important;
+	margin-inline: auto !important;
+	overflow-y: auto !important;
+	-webkit-overflow-scrolling: touch;
+	-ms-overflow-style: none !important;
+	scrollbar-width: none !important;
+}
+
+[data-slot='dialog-content']::-webkit-scrollbar,
+[data-slot='alert-dialog-content']::-webkit-scrollbar,
+[data-slot='drawer-content']::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
+/* Responsive Table Wrappers for seamless horizontal touch scrolling on mobile */
+.table-responsive {
+	width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
+}
+
+/* Safe area utilities */
+.pt-safe {
+	padding-top: max(env(safe-area-inset-top, 0px), var(--pt-fallback, 0px));
+}
+.pb-safe {
+	padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--pb-fallback, 0px));
+}
+.pl-safe {
+	padding-left: max(env(safe-area-inset-left, 0px), var(--pl-fallback, 0px));
+}
+.pr-safe {
+	padding-right: max(env(safe-area-inset-right, 0px), var(--pr-fallback, 0px));
+}
+.h-screen-dvh {
+	height: 100dvh;
+}
+.min-h-screen-dvh {
+	min-height: 100dvh;
+}
