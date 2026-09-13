@@ -495,3 +495,25 @@ flowchart TB
 | **Monorepo Orchestrator** | **Turborepo + pnpm Workspace** | High-speed task caching, parallel execution, single root lockfile. |
 | **Lifecycle Orchestrator** | **`./script.sh` / `.\script.ps1`** | Universal POSIX and PowerShell CLI entrypoint for all developer workflows. |
 
+---
+
+## 8. Capacity Planning, Concurrency & Performance Targets
+
+```mermaid
+flowchart LR
+    A["Baseline Scale<br/>~1,200 Total Users"] --> B["Design Capacity Ceiling<br/><b>30,000 Total Users</b>"]
+    B --> C["Peak Concurrency Target<br/><b>5,000 Concurrent Users</b>"]
+    C --> D["Target Response SLAs<br/>P95 Read: < 15ms · P99 Write: < 50ms"]
+```
+
+### Performance & Resource Invariants
+
+1. **User Scale Ceiling:** Designed to comfortably host up to **30,000 registered users** (students, faculty, parents, staff, admins) with zero performance degradation.
+2. **Peak Concurrency Target:** Engineered for **5,000 concurrent active users** during peak demand spikes (morning attendance roll call, semester registration, fee deadlines, mass emergency notifications).
+3. **Hardware Efficiency:** The Go modular monolith + PostgreSQL 18 architecture handles this 5,000 concurrent user workload on modest single-node infrastructure (2–4 vCPU, 4GB RAM), avoiding distributed microservice overhead and unnecessary operational complexity.
+4. **Latency SLAs:**
+   - Stateless JWT Verification: **< 1ms**
+   - Read Collection Queries (P95): **< 15ms**
+   - Transactional Mutations & State Transitions (P99): **< 50ms**
+
+
