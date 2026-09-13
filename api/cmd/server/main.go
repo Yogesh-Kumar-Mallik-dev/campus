@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,14 +17,60 @@ import (
 	"syscall"
 	"time"
 
-	"campus/api"
-	authhttp "campus/api/http/auth"
-	"campus/api/middleware"
-	"campus/backend/auth"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+
+	"campus/api"
+	audithttp "campus/api/http/audit"
+	authhttp "campus/api/http/auth"
+	"campus/api/middleware"
+	"campus/backend/audit"
+	"campus/backend/auth"
 )
+
+// AuthAuditBridge adapts auth domain events into the central audit ledger.
+type AuthAuditBridge struct {
+	auditService audit.Service
+}
+
+func (b *AuthAuditBridge) PublishAuthEvent(ctx context.Context, event *auth.AuthAuditEvent) error {
+	status := audit.StatusSuccess
+	if event.Severity == "WARN" || event.Severity == "CRITICAL" {
+		status = audit.StatusFailure
+	}
+
+	var meta json.RawMessage
+	if len(event.Metadata) > 0 {
+		meta, _ = json.Marshal(event.Metadata)
+	}
+
+	var userID *string
+	if event.UserID != "" {
+		userID = &event.UserID
+	}
+	var ip *string
+	if event.IPAddress != "" {
+		ip = &event.IPAddress
+	}
+	var ua *string
+	if event.UserAgent != "" {
+		ua = &event.UserAgent
+	}
+
+	return b.auditService.RecordAsync(audit.RecordAuditRequest{
+		TenantID:     event.TenantID,
+		ActorID:      userID,
+		ActorType:    audit.ActorTypeUser,
+		Action:       string(event.Type),
+		ResourceType: "auth_session",
+		Status:       status,
+		IPAddress:    ip,
+		UserAgent:    ua,
+		Metadata:     meta,
+		Timestamp:    &event.Timestamp,
+	})
+}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -36,19 +83,28 @@ func main() {
 		jwtSecret = "default-development-jwt-secret-key-must-be-changed-in-prod-32b!"
 	}
 
-	// 1. Initialize Injected Cryptographic Services
+	// 1. Initialize Rank 2: Central Audit & Compliance System
+	auditRepo := audit.NewMockRepository()
+	auditHasher := audit.NewSHA256Hasher()
+	auditSubscriber := audit.NewAsyncSubscriber(auditRepo, auditHasher, audit.BatchConfig{
+		QueueCapacity: 10000,
+		BatchSize:     100,
+		FlushInterval: 50 * time.Millisecond,
+	})
+	auditSubscriber.Start(context.Background())
+	auditService := audit.NewService(auditRepo, auditHasher, auditSubscriber)
+
+	// 2. Initialize Rank 1: Central Auth & Permissions (IAM)
 	hasher := auth.NewArgon2idHasher(nil)
 	signer := auth.NewJWTSigner(jwtSecret, "campus.institution.edu", 15*time.Minute)
 	totp := auth.NewStandardTOTPProvider()
-	audit := &auth.NoopAuditPublisher{}
+	auditBridge := &AuthAuditBridge{auditService: auditService}
 
-	// 2. Initialize Repositories (In-memory mock for dev / PG repository in prod)
 	userRepo := auth.NewMockUserRepo()
 	sessionRepo := auth.NewMockSessionRepo()
 	rolePermRepo := auth.NewMockRolePermRepo()
 	mfaRepo := auth.NewMockMFARepo()
 
-	// 3. Initialize Auth Domain Service
 	authService := auth.NewAuthService(
 		userRepo,
 		sessionRepo,
@@ -57,15 +113,15 @@ func main() {
 		hasher,
 		signer,
 		totp,
-		audit,
+		auditBridge,
 		nil,
 	)
 
-	// 4. Initialize HTTP Handlers & Middlewares
+	// 3. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 5. Build Chi Router Pipeline
+	// 4. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -82,7 +138,7 @@ func main() {
 		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:5173", "tauri://localhost"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key", "If-Match"},
-		ExposedHeaders:   []string{"Link", "Location", "ETag", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After", "X-Request-ID"},
+		ExposedHeaders:   []string{"Link", "Location", "ETag", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After", "X-Request-ID", "X-Total-Count"},
 		AllowCredentials: true,
 		MaxAge:           86400,
 	}))
@@ -94,6 +150,7 @@ func main() {
 
 	// Register Domain Subsystem Routes
 	authhttp.RegisterRoutes(r, authHandler, authMiddleware)
+	audithttp.RegisterRoutes(r, auditService)
 
 	server := &http.Server{
 		Addr:         ":" + port,
@@ -116,6 +173,9 @@ func main() {
 
 	<-shutdownChan
 	log.Println("Shutting down gateway gracefully...")
+
+	// Drain audit subscriber
+	auditSubscriber.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -35,22 +35,37 @@ enum MFAType {
   BACKUP_CODES
 }
 
+enum AuditActorType {
+  USER
+  SYSTEM
+  SERVICE
+  ANONYMOUS
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  ATTEMPTED
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
 
 model Tenant {
-  id          String   @id @default(uuid(7))
-  slug        String   @unique
-  name        String
-  domain      String?  @unique
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id               String                       @id @default(uuid(7))
+  slug             String                       @unique
+  name             String
+  domain           String?                      @unique
+  isActive         Boolean                      @default(true) @map("is_active")
+  createdAt        DateTime                     @default(now()) @map("created_at")
+  updatedAt        DateTime                     @updatedAt @map("updated_at")
 
-  users       User[]
-  roles       Role[]
-  sessions    Session[]
+  users            User[]
+  roles            Role[]
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  auditCheckpoints AuditVerificationCheckpoint[]
 
   @@map("tenants")
 }
@@ -77,6 +92,7 @@ model User {
   sessions             Session[]
   tokenFamilies        RefreshTokenFamily[]
   mfaEnrollment        MFAEnrollment?
+  auditLogs            AuditLog[]
 
   createdAt            DateTime     @default(now()) @map("created_at")
   updatedAt            DateTime     @updatedAt @map("updated_at")
@@ -238,3 +254,57 @@ model MFAEnrollment {
 
   @@map("mfa_enrollments")
 }
+
+// ==============================================================================
+// Subsystem: Rank 2 - Central Audit & Compliance System (audit)
+// Immutable, Tamper-Evident Ledger with SHA-256 Hash Chaining
+// ==============================================================================
+
+model AuditLog {
+  id           String         @id @default(uuid(7))
+  tenantId     String         @map("tenant_id")
+  actorId      String?        @map("actor_id")
+  actorType    AuditActorType @default(USER) @map("actor_type")
+  actorRole    String?        @map("actor_role")
+  action       String         // e.g. "auth:login:success", "auth:token:breach_detected", "user:create"
+  resourceType String         @map("resource_type") // e.g. "user", "session", "invoice", "student"
+  resourceId   String?        @map("resource_id")
+  status       AuditStatus    @default(SUCCESS)
+  statusCode   Int?           @map("status_code")
+  ipAddress    String?        @map("ip_address")
+  userAgent    String?        @map("user_agent")
+  traceId      String?        @map("trace_id")
+  metadata     Json?
+  changes      Json?          // Before / after state diff
+  prevHash     String?        @map("prev_hash")
+  hash         String         // SHA-256 hash of (id + tenantId + actorId + action + resource + prevHash)
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor        User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, resourceType, resourceId])
+  @@index([tenantId, actorId])
+  @@index([tenantId, action])
+  @@index([traceId])
+  @@map("audit_logs")
+}
+
+model AuditVerificationCheckpoint {
+  id                 String   @id @default(uuid(7))
+  tenantId           String   @map("tenant_id")
+  startAuditId       String   @map("start_audit_id")
+  endAuditId         String   @map("end_audit_id")
+  recordCount        Int      @map("record_count")
+  headHash           String   @map("head_hash")
+  isVerified         Boolean  @map("is_verified")
+  verifiedAt         DateTime @default(now()) @map("verified_at")
+  verificationErrors Json?    @map("verification_errors")
+
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, verifiedAt])
+  @@map("audit_verification_checkpoints")
+}
+

@@ -65,13 +65,16 @@ The Campus Management System is an enterprise-grade platform unifying 17 core ca
 
 ## 4. Active Focus & Immediate Next Steps
 
-- **Completed Subsystem:** **Rank 1: Central Auth & Permissions System (IAM)** (`auth`) & **Universal API Gateway & Transport Layer** — 100% Complete & Verified:
-  - Step 1: PostgreSQL 18 schema defined in `database/schema.prisma`.
-  - Step 2: Go domain core, Argon2id hasher, JWT signer, RFC 6238 TOTP engine, and mock test suite in `backend/auth/` (15 unit tests passing, 83.5% coverage).
-  - Step 3: RFC 7807 Problem Details HTTP engine (`api/problem/`) and Chi REST handlers & tests (`api/http/auth/`).
-  - Step 4: Defense-in-depth API gateway middlewares (`api/middleware/`): request ID tracing (`X-Request-ID`), hardened security headers, strict JSON content negotiation, body size limits, structured JSON logging, and Kubernetes health probes (`/healthz/live`, `/healthz/ready`).
-  - Step 5: Svelte 5 / shadcn-svelte web UI and React Native Reusables mobile UI components for IAM.
-  - Step 6: Synced domain specifications created at `docs/auth.md` and `docs/REST_AND_API_STANDARDS.md`. All 23 unit and integration tests passing with 0 failures.
-- **Next Subsystem:** **Rank 2: Central Audit & Compliance System** (`audit`).
-- **Immediate Next Step:** Formulate domain model, immutable audit ledger schema, and async event subscriber contracts for `audit`.
+- **Completed Subsystems:**
+  - **Rank 1: Central Auth & Permissions System (IAM)** (`auth`) & **Universal API Gateway & Transport Layer** — 100% Complete & Verified (23 unit & integration tests passing).
+  - **Rank 2: Central Audit & Compliance System** (`audit`) — 100% Complete & Verified:
+    - Step 1: PostgreSQL 18 schema (`AuditLog`, `AuditVerificationCheckpoint`) in `database/schema.prisma`.
+    - Step 2: Go domain core, SHA-256 cryptographic chain hasher (`prev_hash` pointer verification & payload tamper detection), asynchronous buffered batch subscriber (10,000 capacity queue), and domain service in `backend/audit/` (10 unit tests passing, 81.4% coverage).
+    - Step 3: REST transport endpoints with RFC 7807 problem details, pagination headers (`X-Total-Count`), and HTTP test suite in `api/http/audit/` (5 integration tests passing).
+    - Step 4: Full integration into gateway binary (`api/cmd/server/main.go`) with `AuthAuditBridge` adapting auth domain events into immutable audit records.
+    - Step 5: Svelte 5 / shadcn-svelte web components (`AuditLogTable.svelte`, `ComplianceReportView.svelte`) and React Native mobile viewer (`AuditLogList.tsx`).
+    - Step 6: Synced domain specification created at `docs/audit.md`. All 38 backend and API tests passing with 0 failures.
+- **Next Subsystem:** **Rank 3: Student & Staff Registration System (Onboarding)** (`onboarding`).
+- **Immediate Next Step:** Formulate domain model, applicant KYC & verification state machine, roll number/employee ID generation algorithm, and cohort assignment schema for `onboarding`.
+
 
