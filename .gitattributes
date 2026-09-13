@@ -1,0 +1,40 @@
+# Auto-detect text files and normalize line endings to LF on commit
+* text=auto eol=lf
+
+# Explicit text file types
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.svelte text eol=lf
+*.tsx text eol=lf
+*.jsx text eol=lf
+*.go text eol=lf
+*.rs text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Shell scripts must strictly use LF
+*.sh text eol=lf
+script.sh text eol=lf
+
+# PowerShell scripts on Windows
+*.ps1 text eol=crlf
+script.ps1 text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.tar.gz binary
+*.zip binary
+*.docx binary
