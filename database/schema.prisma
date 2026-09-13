@@ -276,6 +276,48 @@ enum IncidentSeverity {
   CRITICAL
 }
 
+enum MealType {
+  BREAKFAST
+  LUNCH
+  SNACKS
+  DINNER
+}
+
+enum DietCategory {
+  VEG
+  NON_VEG
+  JAIN
+  VEGAN
+}
+
+enum MessPlanType {
+  SEMESTER
+  MONTHLY
+  PER_MEAL
+  FLEXI
+}
+
+enum MessSubscriptionStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+  CANCELLED
+}
+
+enum DiningTokenStatus {
+  GENERATED
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum MessRebateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CREDITED
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -320,6 +362,12 @@ model Tenant {
   hostelAllocations  HostelBedAllocation[]
   hostelGatePasses   HostelGatePass[]
   hostelIncidents    HostelIncidentLog[]
+  messHalls          MessHall[]
+  messMenuItems      MessMenuItem[]
+  messSubscriptions  MessSubscription[]
+  diningTokens       MessDiningToken[]
+  messRebates        MessRebateApplication[]
+  messFeedbacks      MessMealFeedback[]
 
   @@map("tenants")
 }
@@ -357,6 +405,8 @@ model User {
   wardenBlocks           HostelBlock[]         @relation("WardenBlock")
   approvedGatePasses     HostelGatePass[]      @relation("GatePassApprover")
   loggedIncidents        HostelIncidentLog[]   @relation("IncidentLogger")
+  managedMessHalls       MessHall[]            @relation("MessManager")
+  approvedMessRebates    MessRebateApplication[] @relation("MessRebateApprover")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -777,6 +827,10 @@ model StudentProfile {
   hostelAllocations  HostelBedAllocation[]
   gatePasses         HostelGatePass[]
   hostelIncidents    HostelIncidentLog[]
+  messSubscriptions  MessSubscription[]
+  diningTokens       MessDiningToken[]
+  messRebates        MessRebateApplication[]
+  messFeedbacks      MessMealFeedback[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -1340,6 +1394,150 @@ model HostelIncidentLog {
   @@index([tenantId, blockId, incidentType])
   @@map("hostel_incident_logs")
 }
+
+// ------------------------------------------------------------------------------
+// Subsystem: Rank 8 - Mess Management System (mess)
+// ------------------------------------------------------------------------------
+
+model MessHall {
+  id           String             @id @default(uuid(7))
+  tenantId     String             @map("tenant_id")
+  name         String             // e.g. "North Campus Central Mess"
+  code         String             // e.g. "MESS-NORTH"
+  capacity     Int                @default(400)
+  location     String             // e.g. "Behind Block A & B"
+  catererName  String             @map("caterer_name")
+  managerId    String?            @map("manager_id")
+  isActive     Boolean            @default(true) @map("is_active")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manager       User?              @relation("MessManager", fields: [managerId], references: [id], onDelete: SetNull)
+  menuItems     MessMenuItem[]
+  subscriptions MessSubscription[]
+  diningTokens  MessDiningToken[]
+  feedbacks     MessMealFeedback[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("mess_halls")
+}
+
+model MessMenuItem {
+  id           String        @id @default(uuid(7))
+  tenantId     String        @map("tenant_id")
+  messHallId   String        @map("mess_hall_id")
+  dayOfWeek    DayOfWeek     @map("day_of_week")
+  mealType     MealType      @map("meal_type")
+  dietCategory DietCategory  @default(VEG) @map("diet_category")
+  title        String        // e.g. "Paneer Butter Masala, Dal Makhani, Rice, Roti, Gulab Jamun"
+  description  String?
+  calories     Int           @default(650)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messHall     MessHall      @relation(fields: [messHallId], references: [id], onDelete: Cascade)
+
+  @@unique([messHallId, dayOfWeek, mealType, dietCategory])
+  @@index([tenantId, messHallId, dayOfWeek])
+  @@map("mess_menu_items")
+}
+
+model MessSubscription {
+  id             String                 @id @default(uuid(7))
+  tenantId       String                 @map("tenant_id")
+  studentId      String                 @map("student_id")
+  messHallId     String                 @map("mess_hall_id")
+  planType       MessPlanType           @default(SEMESTER) @map("plan_type")
+  dietPreference DietCategory           @default(VEG) @map("diet_preference")
+  startDate      DateTime               @map("start_date")
+  endDate        DateTime               @map("end_date")
+  status         MessSubscriptionStatus @default(ACTIVE)
+  monthlyFee     Float                  @default(4500) @map("monthly_fee")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student        StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messHall       MessHall               @relation(fields: [messHallId], references: [id], onDelete: Cascade)
+  rebates        MessRebateApplication[]
+
+  @@index([tenantId, studentId, status])
+  @@index([tenantId, messHallId, status])
+  @@map("mess_subscriptions")
+}
+
+model MessDiningToken {
+  id             String            @id @default(uuid(7))
+  tenantId       String            @map("tenant_id")
+  studentId      String            @map("student_id")
+  messHallId     String            @map("mess_hall_id")
+  mealType       MealType          @map("meal_type")
+  tokenCode      String            @unique @map("token_code") // Secure QR code token
+  mealDate       String            @map("meal_date") // YYYY-MM-DD
+  status         DiningTokenStatus @default(GENERATED)
+  redeemedAt     DateTime?         @map("redeemed_at")
+  deviceReaderId String?           @map("device_reader_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student        StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messHall       MessHall          @relation(fields: [messHallId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, studentId, mealType, mealDate])
+  @@index([tenantId, messHallId, mealDate, mealType])
+  @@map("mess_dining_tokens")
+}
+
+model MessRebateApplication {
+  id                String           @id @default(uuid(7))
+  tenantId          String           @map("tenant_id")
+  studentId         String           @map("student_id")
+  subscriptionId    String           @map("subscription_id")
+  fromDate          DateTime         @map("from_date")
+  toDate            DateTime         @map("to_date")
+  totalDays         Int              @map("total_days")
+  dailyRate         Float            @default(150) @map("daily_rate")
+  totalRebateAmount Float            @map("total_rebate_amount")
+  reason            String
+  gatePassId        String?          @map("gate_pass_id")
+  status            MessRebateStatus @default(PENDING)
+  approvedById      String?          @map("approved_by_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student           StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subscription      MessSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  approvedBy        User?            @relation("MessRebateApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, studentId, status])
+  @@map("mess_rebate_applications")
+}
+
+model MessMealFeedback {
+  id            String         @id @default(uuid(7))
+  tenantId      String         @map("tenant_id")
+  studentId     String         @map("student_id")
+  messHallId    String         @map("mess_hall_id")
+  mealDate      String         @map("meal_date") // YYYY-MM-DD
+  mealType      MealType       @map("meal_type")
+  foodRating    Int            @default(5) @map("food_rating") // 1-5
+  hygieneRating Int            @default(5) @map("hygiene_rating") // 1-5
+  comments      String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messHall      MessHall       @relation(fields: [messHallId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, messHallId, mealDate])
+  @@map("mess_meal_feedbacks")
+}
+
 
 
 
