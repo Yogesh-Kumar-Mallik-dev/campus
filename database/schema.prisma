@@ -183,6 +183,39 @@ enum LedgerEntryType {
   CREDIT
 }
 
+enum NoticeCategory {
+  ACADEMIC
+  EXAMINATION
+  ADMINISTRATIVE
+  HOSTEL
+  EVENTS
+  EMERGENCY
+  PLACEMENT
+  GENERAL
+}
+
+enum NoticePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  EXPIRED
+}
+
+enum TargetAudience {
+  ALL
+  STUDENTS
+  FACULTY
+  STAFF
+  HOSTEL_RESIDENTS
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -219,6 +252,8 @@ model Tenant {
   paymentTransactions PaymentTransaction[]
   ledgerAccounts     LedgerAccount[]
   ledgerEntries      LedgerEntry[]
+  notices            CampusNotice[]
+  noticeAcknowledgements NoticeAcknowledgement[]
 
   @@map("tenants")
 }
@@ -251,6 +286,8 @@ model User {
   reviewedApplicants     OnboardingApplicant[] @relation("ApplicantReviewer")
   verifiedDocuments      OnboardingDocument[]  @relation("DocumentVerifier")
   approvedMedicalLeaves  MedicalLeaveApplication[] @relation("MedicalLeaveApprover")
+  authoredNotices        CampusNotice[]        @relation("NoticeAuthor")
+  noticeAcknowledgements NoticeAcknowledgement[]
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -1013,5 +1050,77 @@ model LedgerEntry {
   @@index([tenantId, accountId, postedAt])
   @@map("ledger_entries")
 }
+
+// ------------------------------------------------------------------------------
+// Subsystem: Rank 6 - Notice & Announcement System (notices)
+// ------------------------------------------------------------------------------
+
+model CampusNotice {
+  id              String                  @id @default(uuid(7))
+  tenantId        String                  @map("tenant_id")
+  authorId        String                  @map("author_id") // User ID
+  title           String
+  slug            String
+  content         String
+  category        NoticeCategory          @default(GENERAL)
+  priority        NoticePriority          @default(NORMAL)
+  status          NoticeStatus            @default(DRAFT)
+  targetAudience  TargetAudience          @default(ALL) @map("target_audience")
+  targetDeptId    String?                 @map("target_dept_id")
+  targetProgramId String?                 @map("target_program_id")
+  targetCohortId  String?                 @map("target_cohort_id")
+  isPinned        Boolean                 @default(false) @map("is_pinned")
+  publishAt       DateTime                @default(now()) @map("publish_at")
+  expiresAt       DateTime?               @map("expires_at")
+  viewCount       Int                     @default(0) @map("view_count")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author          User                    @relation("NoticeAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  attachments     NoticeAttachment[]
+  acknowledgements NoticeAcknowledgement[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, category, status])
+  @@index([tenantId, isPinned, publishAt])
+  @@map("campus_notices")
+}
+
+model NoticeAttachment {
+  id        String       @id @default(uuid(7))
+  tenantId  String       @map("tenant_id")
+  noticeId  String       @map("notice_id")
+  fileName  String       @map("file_name")
+  fileKey   String       @map("file_key")
+  fileSize  Int          @map("file_size")
+  mimeType  String       @map("mime_type")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  notice    CampusNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  @@index([noticeId])
+  @@map("notice_attachments")
+}
+
+model NoticeAcknowledgement {
+  id             String       @id @default(uuid(7))
+  tenantId       String       @map("tenant_id")
+  noticeId       String       @map("notice_id")
+  userId         String       @map("user_id")
+  readAt         DateTime     @default(now()) @map("read_at")
+  acknowledgedAt DateTime?    @map("acknowledged_at")
+  deviceId       String?      @map("device_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notice         CampusNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noticeId, userId])
+  @@index([tenantId, userId])
+  @@map("notice_acknowledgements")
+}
+
 
 

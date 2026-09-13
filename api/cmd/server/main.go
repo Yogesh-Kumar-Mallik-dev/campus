@@ -26,12 +26,14 @@ import (
 	audithttp "campus/api/http/audit"
 	authhttp "campus/api/http/auth"
 	billinghttp "campus/api/http/billing"
+	noticeshttp "campus/api/http/notices"
 	onboardinghttp "campus/api/http/onboarding"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
 	"campus/backend/auth"
 	"campus/backend/billing"
+	"campus/backend/notices"
 	"campus/backend/onboarding"
 )
 
@@ -173,11 +175,24 @@ func main() {
 	)
 	billingHandler := billinghttp.NewHandler(billingService)
 
-	// 6. Initialize HTTP Handlers & Middlewares
+	// 6. Initialize Rank 6: Notice & Announcement System
+	noticeRepo := notices.NewMockNoticeRepository()
+	noticeAttRepo := notices.NewMockAttachmentRepository()
+	noticeAckRepo := notices.NewMockAcknowledgementRepository()
+
+	noticesService := notices.NewService(
+		noticeRepo,
+		noticeAttRepo,
+		noticeAckRepo,
+		auditSubscriber,
+	)
+	noticesHandler := noticeshttp.NewHandler(noticesService)
+
+	// 7. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 7. Build Chi Router Pipeline
+	// 8. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -210,6 +225,7 @@ func main() {
 	onboardingHandler.RegisterRoutes(r)
 	attendanceHandler.RegisterRoutes(r)
 	billingHandler.RegisterRoutes(r)
+	noticesHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,
