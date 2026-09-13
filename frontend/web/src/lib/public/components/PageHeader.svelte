@@ -1,0 +1,3 @@
+<script lang="ts">let { eyebrow, title, description, compact = false }: { eyebrow: string; title: string; description: string; compact?: boolean } = $props();</script>
+<!-- Shared heading for public-facing pages. -->
+<section class="border-b bg-muted/40"><div class={`mx-auto max-w-7xl px-[clamp(1rem,4vw,2rem)] ${compact ? "py-[clamp(2.5rem,7vw,3.5rem)]" : "py-[clamp(3rem,8vw,4.5rem)]"}`}><p class="text-xs font-bold uppercase tracking-[.17em] text-primary">{eyebrow}</p><h1 class={`mt-3 max-w-4xl text-balance font-heading font-semibold tracking-tight ${compact ? "text-[clamp(1.875rem,7vw,2.25rem)]" : "text-[clamp(2rem,8vw,3rem)]"}`}>{title}</h1><p class="mt-4 max-w-2xl text-[clamp(.9375rem,3.5vw,1rem)] leading-7 text-muted-foreground">{description}</p></div></section>
