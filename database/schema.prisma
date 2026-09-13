@@ -216,6 +216,66 @@ enum TargetAudience {
   HOSTEL_RESIDENTS
 }
 
+enum HostelGender {
+  MALE
+  FEMALE
+  COED
+}
+
+enum HostelRoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  FOUR_SHARING
+  DORMITORY
+}
+
+enum HostelRoomStatus {
+  AVAILABLE
+  OCCUPIED
+  UNDER_MAINTENANCE
+}
+
+enum HostelBedStatus {
+  AVAILABLE
+  ALLOCATED
+  RESERVED
+  MAINTENANCE
+}
+
+enum HostelAllocationStatus {
+  ALLOCATED
+  VACATED
+  TRANSFERRED
+  CANCELLED
+}
+
+enum GatePassStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  OUT_CAMPUS
+  RETURNED
+  EXPIRED
+  CANCELLED
+}
+
+enum HostelIncidentType {
+  CURFEW_VIOLATION
+  UNAUTHORIZED_GUEST
+  NOISE_DISTURBANCE
+  PROPERTY_DAMAGE
+  SUBSTANCE_VIOLATION
+  OTHER
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
@@ -254,6 +314,12 @@ model Tenant {
   ledgerEntries      LedgerEntry[]
   notices            CampusNotice[]
   noticeAcknowledgements NoticeAcknowledgement[]
+  hostelBlocks       HostelBlock[]
+  hostelRooms        HostelRoom[]
+  hostelBeds         HostelBed[]
+  hostelAllocations  HostelBedAllocation[]
+  hostelGatePasses   HostelGatePass[]
+  hostelIncidents    HostelIncidentLog[]
 
   @@map("tenants")
 }
@@ -288,6 +354,9 @@ model User {
   approvedMedicalLeaves  MedicalLeaveApplication[] @relation("MedicalLeaveApprover")
   authoredNotices        CampusNotice[]        @relation("NoticeAuthor")
   noticeAcknowledgements NoticeAcknowledgement[]
+  wardenBlocks           HostelBlock[]         @relation("WardenBlock")
+  approvedGatePasses     HostelGatePass[]      @relation("GatePassApprover")
+  loggedIncidents        HostelIncidentLog[]   @relation("IncidentLogger")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -705,6 +774,9 @@ model StudentProfile {
   medicalLeaves      MedicalLeaveApplication[]
   invoices           StudentInvoice[]
   paymentTransactions PaymentTransaction[]
+  hostelAllocations  HostelBedAllocation[]
+  gatePasses         HostelGatePass[]
+  hostelIncidents    HostelIncidentLog[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -1121,6 +1193,154 @@ model NoticeAcknowledgement {
   @@index([tenantId, userId])
   @@map("notice_acknowledgements")
 }
+
+// ------------------------------------------------------------------------------
+// Subsystem: Rank 7 - Hostel Management System (hostel)
+// ------------------------------------------------------------------------------
+
+model HostelBlock {
+  id           String              @id @default(uuid(7))
+  tenantId     String              @map("tenant_id")
+  name         String              // e.g. "Aryabhatta Block A"
+  code         String              // e.g. "BH-A"
+  gender       HostelGender        @default(MALE)
+  totalFloors  Int                 @default(3) @map("total_floors")
+  totalRooms   Int                 @default(60) @map("total_rooms")
+  capacity     Int                 @default(120)
+  wardenId     String?             @map("warden_id")
+  isActive     Boolean             @default(true) @map("is_active")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warden       User?               @relation("WardenBlock", fields: [wardenId], references: [id], onDelete: SetNull)
+  rooms        HostelRoom[]
+  gatePasses   HostelGatePass[]
+  incidents    HostelIncidentLog[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, gender, isActive])
+  @@map("hostel_blocks")
+}
+
+model HostelRoom {
+  id                 String           @id @default(uuid(7))
+  tenantId           String           @map("tenant_id")
+  blockId            String           @map("block_id")
+  roomNumber         String           @map("room_number") // e.g. "101", "204"
+  floorNumber        Int              @default(1) @map("floor_number")
+  roomType           HostelRoomType   @default(DOUBLE) @map("room_type")
+  isAc               Boolean          @default(false) @map("is_ac")
+  baseFeePerSemester Float            @default(25000) @map("base_fee_per_semester")
+  status             HostelRoomStatus @default(AVAILABLE)
+  maxBeds            Int              @default(2) @map("max_beds")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  block              HostelBlock      @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  beds               HostelBed[]
+
+  @@unique([blockId, roomNumber])
+  @@index([tenantId, blockId, status])
+  @@map("hostel_rooms")
+}
+
+model HostelBed {
+  id          String                @id @default(uuid(7))
+  tenantId    String                @map("tenant_id")
+  roomId      String                @map("room_id")
+  bedNumber   String                @map("bed_number") // e.g. "A-101-1"
+  status      HostelBedStatus       @default(AVAILABLE)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  room        HostelRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  allocations HostelBedAllocation[]
+
+  @@unique([roomId, bedNumber])
+  @@index([tenantId, status])
+  @@map("hostel_beds")
+}
+
+model HostelBedAllocation {
+  id           String                 @id @default(uuid(7))
+  tenantId     String                 @map("tenant_id")
+  bedId        String                 @map("bed_id")
+  studentId    String                 @map("student_id")
+  academicYear String                 @map("academic_year") // e.g. "2026-2027"
+  semester     Int                    @default(1)
+  allocatedAt  DateTime               @default(now()) @map("allocated_at")
+  vacatedAt    DateTime?              @map("vacated_at")
+  status       HostelAllocationStatus @default(ALLOCATED)
+  remarks      String?
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bed          HostelBed              @relation(fields: [bedId], references: [id], onDelete: Cascade)
+  student      StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId, status])
+  @@index([tenantId, bedId, status])
+  @@map("hostel_bed_allocations")
+}
+
+model HostelGatePass {
+  id               String         @id @default(uuid(7))
+  tenantId         String         @map("tenant_id")
+  studentId        String         @map("student_id")
+  blockId          String         @map("block_id")
+  reason           String
+  destination      String
+  emergencyContact String         @map("emergency_contact")
+  expectedOutAt    DateTime       @map("expected_out_at")
+  expectedInAt     DateTime       @map("expected_in_at")
+  actualOutAt      DateTime?      @map("actual_out_at")
+  actualInAt       DateTime?      @map("actual_in_at")
+  status           GatePassStatus @default(PENDING)
+  approvedById     String?        @map("approved_by_id")
+  rejectionReason  String?        @map("rejection_reason")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student          StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  block            HostelBlock    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  approvedBy       User?          @relation("GatePassApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, studentId, status])
+  @@index([tenantId, blockId, status])
+  @@map("hostel_gate_passes")
+}
+
+model HostelIncidentLog {
+  id           String             @id @default(uuid(7))
+  tenantId     String             @map("tenant_id")
+  studentId    String             @map("student_id")
+  blockId      String             @map("block_id")
+  wardenId     String             @map("warden_id")
+  incidentType HostelIncidentType @map("incident_type")
+  severity     IncidentSeverity   @default(LOW)
+  title        String
+  description  String
+  actionTaken  String?            @map("action_taken")
+  fineAmount   Float              @default(0) @map("fine_amount")
+  resolvedAt   DateTime?          @map("resolved_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      StudentProfile     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  block        HostelBlock        @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  warden       User               @relation("IncidentLogger", fields: [wardenId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, blockId, incidentType])
+  @@map("hostel_incident_logs")
+}
+
 
 
 
