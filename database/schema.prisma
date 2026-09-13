@@ -411,6 +411,10 @@ model Tenant {
   studyMaterials     StudyMaterial[]
   studyAssignments   StudyAssignment[]
   studySubmissions   StudySubmission[]
+  mentorAllocations  MentorAllocation[]
+  mentorshipSessions MentorshipSession[]
+  studentProgress    StudentAcademicProgress[]
+  atRiskAlerts       MentorshipAtRiskAlert[]
 
   @@map("tenants")
 }
@@ -882,6 +886,9 @@ model StudentProfile {
   ebookAccesses      LibraryEbookAccess[]
   assignmentSubmissions StudySubmission[]
   peerReviewsGiven   StudyPeerReview[]   @relation("PeerReviewer")
+  mentorAllocations  MentorAllocation[]
+  academicProgress   StudentAcademicProgress[]
+  atRiskAlerts       MentorshipAtRiskAlert[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -910,6 +917,7 @@ model StaffProfile {
   department         AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   timetableSlots     TimetableSlot[]
   attendanceSessions AttendanceSession[]
+  menteeAllocations  MentorAllocation[]
 
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
@@ -1841,6 +1849,138 @@ model StudyPeerReview {
   @@index([reviewerStudentId])
   @@map("study_peer_reviews")
 }
+
+// ==============================================================================
+// RANK 11: Progress Tracker & Mentorship System
+// ==============================================================================
+
+enum MentorAllocationStatus {
+  ACTIVE
+  COMPLETED
+  REASSIGNED
+}
+
+enum MentorshipMeetingType {
+  ONE_ON_ONE
+  GROUP
+  ACADEMIC_REVIEW
+  EMERGENCY_COUNSELING
+}
+
+enum MentorshipSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AtRiskStatus {
+  NORMAL
+  WATCHLIST
+  CRITICAL_INTERVENTION
+}
+
+enum AtRiskType {
+  ACADEMIC_PROBATION
+  ATTENDANCE_SHORTAGE
+  DISCIPLINARY
+  MENTAL_HEALTH
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model MentorAllocation {
+  id            String                 @id @default(uuid(7))
+  tenantId      String                 @map("tenant_id")
+  studentId     String                 @map("student_id")
+  mentorStaffId String                 @map("mentor_staff_id")
+  cohortId      String?                @map("cohort_id")
+  status        MentorAllocationStatus @default(ACTIVE)
+  allocatedAt   DateTime               @default(now()) @map("allocated_at")
+  completedAt   DateTime?              @map("completed_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student       StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  mentor        StaffProfile           @relation(fields: [mentorStaffId], references: [id], onDelete: Cascade)
+  sessions      MentorshipSession[]
+
+  @@index([tenantId, studentId, status])
+  @@index([tenantId, mentorStaffId, status])
+  @@map("mentor_allocations")
+}
+
+model MentorshipSession {
+  id                String                  @id @default(uuid(7))
+  tenantId          String                  @map("tenant_id")
+  allocationId      String                  @map("allocation_id")
+  scheduledAt       DateTime                @map("scheduled_at")
+  completedAt       DateTime?               @map("completed_at")
+  location          String?
+  meetingType       MentorshipMeetingType   @default(ONE_ON_ONE) @map("meeting_type")
+  status            MentorshipSessionStatus @default(SCHEDULED)
+  discussionSummary String?                 @map("discussion_summary")
+  actionItems       String?                 @map("action_items")
+  followUpDate      DateTime?               @map("follow_up_date")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  allocation        MentorAllocation        @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, allocationId, status])
+  @@map("mentorship_sessions")
+}
+
+model StudentAcademicProgress {
+  id                   String       @id @default(uuid(7))
+  tenantId             String       @map("tenant_id")
+  studentId            String       @map("student_id")
+  semester             Int
+  sgpa                 Float
+  cgpa                 Float
+  attendancePercentage Float        @map("attendance_percentage")
+  creditsEarned        Int          @map("credits_earned")
+  totalCredits         Int          @map("total_credits")
+  atRiskStatus         AtRiskStatus @default(NORMAL) @map("at_risk_status")
+  remarks              String?
+  evaluatedAt          DateTime     @default(now()) @map("evaluated_at")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student              StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, studentId, semester])
+  @@index([tenantId, atRiskStatus])
+  @@map("student_academic_progress")
+}
+
+model MentorshipAtRiskAlert {
+  id           String       @id @default(uuid(7))
+  tenantId     String       @map("tenant_id")
+  studentId    String       @map("student_id")
+  riskType     AtRiskType   @map("risk_type")
+  severity     RiskSeverity @default(MEDIUM)
+  description  String
+  resolvedAt   DateTime?    @map("resolved_at")
+  resolvedById String?      @map("resolved_by_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId, severity])
+  @@map("mentorship_at_risk_alerts")
+}
+
 
 
 
