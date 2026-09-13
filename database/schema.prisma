@@ -407,6 +407,10 @@ model Tenant {
   libraryBorrows     LibraryBorrowRecord[]
   libraryReservations LibraryReservation[]
   ebookAccesses      LibraryEbookAccess[]
+  studyCourses       StudyCourse[]
+  studyMaterials     StudyMaterial[]
+  studyAssignments   StudyAssignment[]
+  studySubmissions   StudySubmission[]
 
   @@map("tenants")
 }
@@ -447,6 +451,8 @@ model User {
   managedMessHalls       MessHall[]            @relation("MessManager")
   approvedMessRebates    MessRebateApplication[] @relation("MessRebateApprover")
   issuedBorrows          LibraryBorrowRecord[] @relation("BorrowIssuer")
+  createdCourses         StudyCourse[]         @relation("CourseInstructor")
+  gradedSubmissions      StudySubmission[]     @relation("SubmissionGrader")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -874,6 +880,8 @@ model StudentProfile {
   libraryBorrows     LibraryBorrowRecord[]
   libraryReservations LibraryReservation[]
   ebookAccesses      LibraryEbookAccess[]
+  assignmentSubmissions StudySubmission[]
+  peerReviewsGiven   StudyPeerReview[]   @relation("PeerReviewer")
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -1696,6 +1704,144 @@ model LibraryEbookAccess {
   @@index([tenantId, studentId])
   @@map("library_ebook_accesses")
 }
+
+// ==============================================================================
+// RANK 10: Study Hub System (Courses, Materials, Assignments & Peer Grading)
+// ==============================================================================
+
+enum StudyMaterialType {
+  NOTE
+  SLIDE
+  LAB_MANUAL
+  RECORDING
+  SAMPLE_PAPER
+}
+
+enum StudyAssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum StudySubmissionStatus {
+  SUBMITTED
+  GRADED
+  LATE
+  REJECTED
+}
+
+model StudyCourse {
+  id           String            @id @default(uuid(7))
+  tenantId     String            @map("tenant_id")
+  code         String            // e.g. "CS-301"
+  title        String            // e.g. "Advanced Operating Systems"
+  description  String?
+  department   String
+  credits      Int               @default(4)
+  semester     Int               @default(1)
+  instructorId String?           @map("instructor_id")
+  syllabusText String?           @map("syllabus_text")
+  isActive     Boolean           @default(true) @map("is_active")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  instructor   User?             @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
+  materials    StudyMaterial[]
+  assignments  StudyAssignment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, department, semester])
+  @@map("study_courses")
+}
+
+model StudyMaterial {
+  id           String            @id @default(uuid(7))
+  tenantId     String            @map("tenant_id")
+  courseId     String            @map("course_id")
+  title        String
+  description  String?
+  unitNumber   Int               @default(1) @map("unit_number")
+  materialType StudyMaterialType @default(NOTE) @map("material_type")
+  fileUrl      String            @map("file_url")
+  fileSizeBytes BigInt           @default(0) @map("file_size_bytes")
+  publishedAt  DateTime          @default(now()) @map("published_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  course       StudyCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, courseId, unitNumber])
+  @@map("study_materials")
+}
+
+model StudyAssignment {
+  id                       String                @id @default(uuid(7))
+  tenantId                 String                @map("tenant_id")
+  courseId                 String                @map("course_id")
+  title                    String
+  description              String
+  maxMarks                 Int                   @default(100) @map("max_marks")
+  dueDate                  DateTime              @map("due_date")
+  allowLateSubmission      Boolean               @default(true) @map("allow_late_submission")
+  latePenaltyPercentPerDay Int                   @default(5) @map("late_penalty_percent_per_day")
+  status                   StudyAssignmentStatus @default(DRAFT)
+  createdAt                DateTime              @default(now()) @map("created_at")
+  updatedAt                DateTime              @updatedAt @map("updated_at")
+
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  course                   StudyCourse           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions              StudySubmission[]
+
+  @@index([tenantId, courseId, status])
+  @@map("study_assignments")
+}
+
+model StudySubmission {
+  id            String                @id @default(uuid(7))
+  tenantId      String                @map("tenant_id")
+  assignmentId  String                @map("assignment_id")
+  studentId     String                @map("student_id")
+  fileUrl       String?               @map("file_url")
+  contentText   String?               @map("content_text")
+  submittedAt   DateTime              @default(now()) @map("submitted_at")
+  status        StudySubmissionStatus @default(SUBMITTED)
+  marksObtained Float?                @map("marks_obtained")
+  feedback      String?
+  gradedById    String?               @map("graded_by_id")
+  gradedAt      DateTime?             @map("graded_at")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignment    StudyAssignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student       StudentProfile        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  gradedBy      User?                 @relation("SubmissionGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  peerReviews   StudyPeerReview[]
+
+  @@unique([assignmentId, studentId])
+  @@index([tenantId, assignmentId, status])
+  @@index([tenantId, studentId])
+  @@map("study_submissions")
+}
+
+model StudyPeerReview {
+  id                String          @id @default(uuid(7))
+  submissionId      String          @map("submission_id")
+  reviewerStudentId String          @map("reviewer_student_id")
+  score             Float
+  comments          String
+  reviewedAt        DateTime        @default(now()) @map("reviewed_at")
+
+  submission        StudySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer          StudentProfile  @relation("PeerReviewer", fields: [reviewerStudentId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, reviewerStudentId])
+  @@index([reviewerStudentId])
+  @@map("study_peer_reviews")
+}
+
 
 
 

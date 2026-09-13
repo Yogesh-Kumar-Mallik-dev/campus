@@ -31,6 +31,7 @@ import (
 	messhttp "campus/api/http/mess"
 	noticeshttp "campus/api/http/notices"
 	onboardinghttp "campus/api/http/onboarding"
+	studyhubhttp "campus/api/http/studyhub"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
@@ -41,6 +42,7 @@ import (
 	"campus/backend/mess"
 	"campus/backend/notices"
 	"campus/backend/onboarding"
+	"campus/backend/studyhub"
 )
 
 // AuthAuditBridge adapts auth domain events into the central audit ledger.
@@ -209,11 +211,16 @@ func main() {
 	libraryService := library.NewService(libraryRepo, auditSubscriber)
 	libraryHandler := libraryhttp.NewHandler(libraryService)
 
-	// 10. Initialize HTTP Handlers & Middlewares
+	// 10. Initialize Rank 10: Study Hub System
+	studyhubRepo := studyhub.NewMockRepository()
+	studyhubService := studyhub.NewService(studyhubRepo, auditSubscriber)
+	studyhubHandler := studyhubhttp.NewHandler(studyhubService)
+
+	// 11. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 11. Build Chi Router Pipeline
+	// 12. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -250,6 +257,7 @@ func main() {
 	hostelHandler.RegisterRoutes(r)
 	messHandler.RegisterRoutes(r)
 	libraryHandler.RegisterRoutes(r)
+	studyhubHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,
