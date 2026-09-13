@@ -16,3 +16,6 @@ Welcome, Agents! When working in this repository, you must adhere to the followi
    Adhere strictly to `rules/documentation_standards.md` and eliminate all 10 AI anti-patterns.
 7. **Mobile-First Responsive Layouts:**
    Ensure all UI components and templates are fluid and resilient across viewports (280px to 4K).
+8. **REST API & RFC 7807 Standards:**
+   Adhere strictly to `.agent/rules/api_and_error_handling.md` and `docs/REST_AND_API_STANDARDS.md` (plural nouns, HTTP verbs, RFC 7807 error envelopes with trace ID, OCC with ETags, `200 OK` empty collection query semantics).
+
