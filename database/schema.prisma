@@ -1,0 +1,240 @@
+// ==============================================================================
+// Campus Management System — Authoritative Database Schema
+// Subsystem: Rank 1 - Central Auth & Permissions System (IAM)
+// Database Engine: PostgreSQL 18
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------------------
+// Enum Definitions
+// ------------------------------------------------------------------------------
+
+enum AccountTier {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  LOCKED
+}
+
+enum MFAType {
+  TOTP
+  BACKUP_CODES
+}
+
+// ------------------------------------------------------------------------------
+// Multi-Tenant Partition Anchor
+// ------------------------------------------------------------------------------
+
+model Tenant {
+  id          String   @id @default(uuid(7))
+  slug        String   @unique
+  name        String
+  domain      String?  @unique
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  roles       Role[]
+  sessions    Session[]
+
+  @@map("tenants")
+}
+
+// ------------------------------------------------------------------------------
+// Core User Identity Model
+// ------------------------------------------------------------------------------
+
+model User {
+  id                   String       @id @default(uuid(7))
+  tenantId             String       @map("tenant_id")
+  tier                 AccountTier  @default(USER)
+  username             String
+  email                String
+  emailNormalized      String       @map("email_normalized")
+  passwordHash         String       @map("password_hash")
+  status               UserStatus   @default(ACTIVE)
+  failedLoginAttempts  Int          @default(0) @map("failed_login_attempts")
+  lockoutUntil         DateTime?    @map("lockout_until")
+  lastLoginAt          DateTime?    @map("last_login_at")
+  
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles            UserRole[]
+  sessions             Session[]
+  tokenFamilies        RefreshTokenFamily[]
+  mfaEnrollment        MFAEnrollment?
+
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  @@unique([tenantId, emailNormalized])
+  @@unique([tenantId, username])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+// ------------------------------------------------------------------------------
+// Roles & Functional Personas
+// ------------------------------------------------------------------------------
+
+model Role {
+  id          String           @id @default(uuid(7))
+  tenantId    String           @map("tenant_id")
+  key         String           // e.g. "student", "faculty", "warden", "librarian", "admin"
+  name        String           // Human-readable: "Faculty Member"
+  description String?
+  isSystem    Boolean          @default(false) @map("is_system")
+  
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePerms   RolePermission[]
+  userRoles   UserRole[]
+
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+// ------------------------------------------------------------------------------
+// Granular Capability Permissions
+// ------------------------------------------------------------------------------
+
+model Permission {
+  id          String           @id @default(uuid(7))
+  key         String           @unique // e.g. "hostel:gatepass:approve", "mess:menu:update"
+  domain      String           // e.g. "hostel", "mess", "academics", "auth"
+  description String
+  
+  rolePerms   RolePermission[]
+
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([domain])
+  @@map("permissions")
+}
+
+// ------------------------------------------------------------------------------
+// Role-Permission Explicit Mapping
+// ------------------------------------------------------------------------------
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ------------------------------------------------------------------------------
+// User-Role Persona Assignment (with Domain/Dept/Hostel Scope)
+// ------------------------------------------------------------------------------
+
+model UserRole {
+  id          String   @id @default(uuid(7))
+  userId      String   @map("user_id")
+  roleId      String   @map("role_id")
+  
+  // Optional domain scope (e.g. "dept_mechanical", "hostel_block_b", "campus_wide")
+  scopeType   String?  @map("scope_type")
+  scopeId     String?  @map("scope_id")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, roleId, scopeId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ------------------------------------------------------------------------------
+// Active Session State
+// ------------------------------------------------------------------------------
+
+model Session {
+  id                String              @id @default(uuid(7))
+  userId            String              @map("user_id")
+  tenantId          String              @map("tenant_id")
+  tokenFamilyId     String              @map("token_family_id")
+  currentTokenHash  String              @map("current_token_hash")
+  ipAddress         String?             @map("ip_address")
+  userAgent         String?             @map("user_agent")
+  deviceFingerprint String?             @map("device_fingerprint")
+  expiresAt         DateTime            @map("expires_at")
+  revokedAt         DateTime?           @map("revoked_at")
+  revokedReason     String?             @map("revoked_reason")
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tokenFamily       RefreshTokenFamily  @relation(fields: [tokenFamilyId], references: [familyId], onDelete: Cascade)
+
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@index([userId, tenantId])
+  @@index([tokenFamilyId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ------------------------------------------------------------------------------
+// Refresh Token Family (Single-Use Rotation & Replay Attack Defense)
+// ------------------------------------------------------------------------------
+
+model RefreshTokenFamily {
+  familyId         String    @id @default(uuid(7)) @map("family_id")
+  userId           String    @map("user_id")
+  activeTokenHash  String    @map("active_token_hash")
+  rotationCount    Int       @default(0) @map("rotation_count")
+  isCompromised    Boolean   @default(false) @map("is_compromised")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedReason    String?   @map("revoked_reason")
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions         Session[]
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("refresh_token_families")
+}
+
+// ------------------------------------------------------------------------------
+// Multi-Factor Authentication (TOTP & Backup Codes)
+// ------------------------------------------------------------------------------
+
+model MFAEnrollment {
+  userId             String    @id @map("user_id")
+  mfaType            MFAType   @default(TOTP) @map("mfa_type")
+  secretEncrypted    String    @map("secret_encrypted")
+  backupCodesHashed  String?   @map("backup_codes_hashed")
+  isVerified         Boolean   @default(false) @map("is_verified")
+  enrolledAt         DateTime  @default(now()) @map("enrolled_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_enrollments")
+}
