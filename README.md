@@ -1,9 +1,9 @@
 # Campus Management System (CMS)
 
-**Enterprise Modular Monolith for Modern Educational Institutions**
+## Enterprise Modular Monolith for Modern Educational Institutions
 
 [![Engineering Standards](https://img.shields.io/badge/Standards-Authoritative-blue.svg)](docs/templates/DOCUMENTATION_STANDARDS.md)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](#6-license)
 [![Zero AI Anti-Patterns](https://img.shields.io/badge/AI%20Guardrails-Zero%20Anti--Patterns-success.svg)](.agent/rules/ai_anti_patterns.md)
 
 ---
@@ -86,6 +86,7 @@ flowchart TB
 ```
 
 ### Layer Rules
+
 1. **Frontend Layer:** Communicates exclusively with the API via typed HTTP clients. Powered by **The Hub** root shell architecture.
 2. **API Layer:** Handles request deserialization, auth middleware, and RFC 7807 error envelopes. Contains zero domain business logic.
 3. **Backend Layer:** Encapsulates domain logic using interface-driven Dependency Injection (DI). Completely decoupled from SQL/database details.
@@ -133,6 +134,6 @@ This project strictly adheres to the authoritative standards defined in [`.agent
 
 ---
 
-## 6. License
-
-This repository is licensed under the [MIT License](LICENSE).
+## 6. License & Intellectual Property
+ 
+This software and its documentation are proprietary and confidential. All rights reserved. Unauthorized copying, modification, distribution, public display, or decompilation of this repository via any medium is strictly prohibited without prior written authorization.
