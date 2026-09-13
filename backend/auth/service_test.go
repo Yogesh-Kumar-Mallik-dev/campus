@@ -85,7 +85,7 @@ func TestLogin_Success_Email(t *testing.T) {
 		ScopeID:   "mech_dept",
 	})
 
-	rolePermRepo.permissions[userID] = []string{"academics:attendance:mark", "academics:grades:submit"}
+	rolePermRepo.Permissions[userID] = []string{"academics:attendance:mark", "academics:grades:submit"}
 
 	// Act
 	res, err := service.Login(ctx, LoginCommand{
