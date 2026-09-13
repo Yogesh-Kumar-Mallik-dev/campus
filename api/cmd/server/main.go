@@ -34,12 +34,14 @@ import (
 	studyhubhttp "campus/api/http/studyhub"
 	mentorshiphttp "campus/api/http/mentorship"
 	eventshttp "campus/api/http/events"
+	helpdeskhttp "campus/api/http/helpdesk"
 	"campus/api/middleware"
 	"campus/backend/attendance"
 	"campus/backend/audit"
 	"campus/backend/auth"
 	"campus/backend/billing"
 	"campus/backend/events"
+	"campus/backend/helpdesk"
 	"campus/backend/hostel"
 	"campus/backend/library"
 	"campus/backend/mess"
@@ -230,11 +232,16 @@ func main() {
 	eventsService := events.NewService(eventsRepo, auditSubscriber)
 	eventsHandler := eventshttp.NewHandler(eventsService)
 
-	// 13. Initialize HTTP Handlers & Middlewares
+	// 13. Initialize Rank 13: Application & Query Helpdesk System
+	helpdeskRepo := helpdesk.NewMockRepository()
+	helpdeskService := helpdesk.NewService(helpdeskRepo, auditSubscriber)
+	helpdeskHandler := helpdeskhttp.NewHandler(helpdeskService)
+
+	// 14. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 14. Build Chi Router Pipeline
+	// 15. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -274,6 +281,7 @@ func main() {
 	studyhubHandler.RegisterRoutes(r)
 	mentorshipHandler.RegisterRoutes(r)
 	eventsHandler.RegisterRoutes(r)
+	helpdeskHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,

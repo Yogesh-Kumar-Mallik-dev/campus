@@ -418,6 +418,10 @@ model Tenant {
   campusEvents       CampusEvent[]
   eventTickets       EventTicket[]
   eventVenueBookings EventVenueBooking[]
+  helpdeskCategories HelpdeskCategory[]
+  helpdeskTickets    HelpdeskTicket[]
+  helpdeskMessages   HelpdeskMessage[]
+  helpdeskEscalations HelpdeskEscalation[]
 
   @@map("tenants")
 }
@@ -463,6 +467,10 @@ model User {
   organizedEvents        CampusEvent[]
   checkedInTickets       EventTicket[]         @relation("TicketCheckInStaff")
   venueBookings          EventVenueBooking[]   @relation("VenueBooker")
+  requestedTickets       HelpdeskTicket[]      @relation("TicketRequester")
+  assignedTickets        HelpdeskTicket[]      @relation("TicketAssignee")
+  helpdeskMessages       HelpdeskMessage[]     @relation("MessageSender")
+  escalatedTickets       HelpdeskEscalation[]  @relation("EscalationStaff")
 
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
@@ -2091,6 +2099,125 @@ model EventVenueBooking {
   @@index([tenantId, venueName, bookedStartTime, bookedEndTime])
   @@map("event_venue_bookings")
 }
+
+// ==============================================================================
+// RANK 13: Application & Query Helpdesk (Tickets, SLA Radar & Live Resolution Desk)
+// ==============================================================================
+
+enum HelpdeskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum HelpdeskTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_APPLICANT
+  RESOLVED
+  CLOSED
+}
+
+enum HelpdeskEscalationStatus {
+  PENDING
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model HelpdeskCategory {
+  id                 String           @id @default(uuid(7))
+  tenantId           String           @map("tenant_id")
+  code               String           // e.g. "ACADEMIC", "HOSTEL", "BILLING", "IT_SUPPORT", "ADMISSION"
+  name               String           // e.g. "Academic Affairs & Grades"
+  description        String?
+  defaultPriority    HelpdeskPriority @default(MEDIUM) @map("default_priority")
+  slaResponseHours   Int              @default(24) @map("sla_response_hours")
+  slaResolutionHours Int              @default(72) @map("sla_resolution_hours")
+  isActive           Boolean          @default(true) @map("is_active")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tickets            HelpdeskTicket[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("helpdesk_categories")
+}
+
+model HelpdeskTicket {
+  id              String               @id @default(uuid(7))
+  tenantId        String               @map("tenant_id")
+  ticketNumber    String               @map("ticket_number") // e.g. "HD-2026-0001"
+  categoryId      String               @map("category_id")
+  requesterId     String               @map("requester_id")
+  assignedStaffId String?              @map("assigned_staff_id")
+  title           String
+  description     String
+  priority        HelpdeskPriority     @default(MEDIUM)
+  status          HelpdeskTicketStatus @default(OPEN)
+  slaDueAt        DateTime             @map("sla_due_at")
+  firstResponseAt DateTime?            @map("first_response_at")
+  resolvedAt      DateTime?            @map("resolved_at")
+  closedAt        DateTime?            @map("closed_at")
+  rating          Int?                 // 1 to 5 stars
+  feedback        String?
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category        HelpdeskCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  requester       User                 @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignedStaff   User?                @relation("TicketAssignee", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  messages        HelpdeskMessage[]
+  escalations     HelpdeskEscalation[]
+
+  @@unique([tenantId, ticketNumber])
+  @@index([tenantId, status, priority])
+  @@index([tenantId, requesterId])
+  @@index([tenantId, assignedStaffId])
+  @@index([tenantId, slaDueAt])
+  @@map("helpdesk_tickets")
+}
+
+model HelpdeskMessage {
+  id             String         @id @default(uuid(7))
+  tenantId       String         @map("tenant_id")
+  ticketId       String         @map("ticket_id")
+  senderId       String         @map("sender_id")
+  isStaffReply   Boolean        @default(false) @map("is_staff_reply")
+  isInternalNote Boolean        @default(false) @map("is_internal_note")
+  message        String
+  attachments    Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket         HelpdeskTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender         User           @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, ticketId, createdAt])
+  @@map("helpdesk_messages")
+}
+
+model HelpdeskEscalation {
+  id            String                   @id @default(uuid(7))
+  tenantId      String                   @map("tenant_id")
+  ticketId      String                   @map("ticket_id")
+  escalatedToId String?                  @map("escalated_to_id")
+  reason        String
+  status        HelpdeskEscalationStatus @default(PENDING)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket        HelpdeskTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  escalatedTo   User?                    @relation("EscalationStaff", fields: [escalatedToId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, ticketId, status])
+  @@map("helpdesk_escalations")
+}
+
 
 
 

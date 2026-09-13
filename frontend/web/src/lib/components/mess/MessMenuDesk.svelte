@@ -201,7 +201,7 @@
 
   <!-- 4-Meal Slot Menu Grid for Selected Day -->
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-    {#each ['BREAKFAST', 'LUNCH', 'SNACKS', 'DINNER'] as MealType slot}
+    {#each ['BREAKFAST', 'LUNCH', 'SNACKS', 'DINNER'] as slot}
       {@const slotItems = filteredMenuItems.filter((i) => i.meal_type === slot)}
       <Card class="shadow-sm border hover:border-primary/40 transition-colors flex flex-col justify-between">
         <CardHeader class="pb-3 border-b bg-muted/10">
