@@ -65,11 +65,13 @@ The Campus Management System is an enterprise-grade platform unifying 17 core ca
 
 ## 4. Active Focus & Immediate Next Steps
 
-- **Completed Subsystem:** **Rank 1: Central Auth & Permissions System (IAM)** (`auth`) — 100% Complete & Verified:
+- **Completed Subsystem:** **Rank 1: Central Auth & Permissions System (IAM)** (`auth`) & **Universal API Gateway & Transport Layer** — 100% Complete & Verified:
   - Step 1: PostgreSQL 18 schema defined in `database/schema.prisma`.
-  - Step 2: Go domain core, Argon2id hasher, JWT signer, RFC 6238 TOTP engine, and mock test suite in `backend/auth/`.
+  - Step 2: Go domain core, Argon2id hasher, JWT signer, RFC 6238 TOTP engine, and mock test suite in `backend/auth/` (15 unit tests passing, 83.5% coverage).
   - Step 3: RFC 7807 Problem Details HTTP engine (`api/problem/`) and Chi REST handlers & tests (`api/http/auth/`).
-  - Step 4: Svelte 5 / shadcn-svelte web UI and React Native Reusables mobile UI components for IAM.
-  - Step 5: Synced domain documentation created at `docs/auth.md`. All 19 unit and integration tests passing with 0 failures.
+  - Step 4: Defense-in-depth API gateway middlewares (`api/middleware/`): request ID tracing (`X-Request-ID`), hardened security headers, strict JSON content negotiation, body size limits, structured JSON logging, and Kubernetes health probes (`/healthz/live`, `/healthz/ready`).
+  - Step 5: Svelte 5 / shadcn-svelte web UI and React Native Reusables mobile UI components for IAM.
+  - Step 6: Synced domain specifications created at `docs/auth.md` and `docs/REST_AND_API_STANDARDS.md`. All 23 unit and integration tests passing with 0 failures.
 - **Next Subsystem:** **Rank 2: Central Audit & Compliance System** (`audit`).
 - **Immediate Next Step:** Formulate domain model, immutable audit ledger schema, and async event subscriber contracts for `audit`.
+
