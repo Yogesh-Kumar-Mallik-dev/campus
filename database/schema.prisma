@@ -95,32 +95,74 @@ enum DegreeType {
   DOCTORAL
 }
 
+enum AttendanceSessionStatus {
+  SCHEDULED
+  OPEN
+  LOCKED
+  FINALIZED
+}
+
+enum AttendanceMode {
+  MANUAL_FACULTY
+  BIOMETRIC_TERMINAL
+  RFID_SCAN
+  GEOFENCE_MOBILE
+}
+
+enum AttendanceRecordStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED_MEDICAL
+}
+
+enum MedicalLeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 // ------------------------------------------------------------------------------
 // Multi-Tenant Partition Anchor
 // ------------------------------------------------------------------------------
 
 model Tenant {
-  id               String                       @id @default(uuid(7))
-  slug             String                       @unique
-  name             String
-  domain           String?                      @unique
-  isActive         Boolean                      @default(true) @map("is_active")
-  createdAt        DateTime                     @default(now()) @map("created_at")
-  updatedAt        DateTime                     @updatedAt @map("updated_at")
+  id                 String                       @id @default(uuid(7))
+  slug               String                       @unique
+  name               String
+  domain             String?                      @unique
+  isActive           Boolean                      @default(true) @map("is_active")
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
 
-  users            User[]
-  roles            Role[]
-  sessions         Session[]
-  auditLogs        AuditLog[]
-  auditCheckpoints AuditVerificationCheckpoint[]
-  departments      AcademicDepartment[]
-  programs         AcademicProgram[]
-  cohorts          CohortBatch[]
-  applicants       OnboardingApplicant[]
-  documents        OnboardingDocument[]
-  students         StudentProfile[]
-  staffProfiles    StaffProfile[]
-  sequenceCounters IdentitySequenceCounter[]
+  users              User[]
+  roles              Role[]
+  sessions           Session[]
+  auditLogs          AuditLog[]
+  auditCheckpoints   AuditVerificationCheckpoint[]
+  departments        AcademicDepartment[]
+  programs           AcademicProgram[]
+  cohorts            CohortBatch[]
+  applicants         OnboardingApplicant[]
+  documents          OnboardingDocument[]
+  students           StudentProfile[]
+  staffProfiles      StaffProfile[]
+  sequenceCounters   IdentitySequenceCounter[]
+  courseSubjects     CourseSubject[]
+  timetableSlots     TimetableSlot[]
+  attendanceSessions AttendanceSession[]
+  attendanceRecords  AttendanceRecord[]
+  medicalLeaves      MedicalLeaveApplication[]
 
   @@map("tenants")
 }
@@ -130,31 +172,32 @@ model Tenant {
 // ------------------------------------------------------------------------------
 
 model User {
-  id                   String       @id @default(uuid(7))
-  tenantId             String       @map("tenant_id")
-  tier                 AccountTier  @default(USER)
-  username             String
-  email                String
-  emailNormalized      String       @map("email_normalized")
-  passwordHash         String       @map("password_hash")
-  status               UserStatus   @default(ACTIVE)
-  failedLoginAttempts  Int          @default(0) @map("failed_login_attempts")
-  lockoutUntil         DateTime?    @map("lockout_until")
-  lastLoginAt          DateTime?    @map("last_login_at")
+  id                     String       @id @default(uuid(7))
+  tenantId               String       @map("tenant_id")
+  tier                   AccountTier  @default(USER)
+  username               String
+  email                  String
+  emailNormalized        String       @map("email_normalized")
+  passwordHash           String       @map("password_hash")
+  status                 UserStatus   @default(ACTIVE)
+  failedLoginAttempts    Int          @default(0) @map("failed_login_attempts")
+  lockoutUntil           DateTime?    @map("lockout_until")
+  lastLoginAt            DateTime?    @map("last_login_at")
   
-  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles            UserRole[]
-  sessions             Session[]
-  tokenFamilies        RefreshTokenFamily[]
-  mfaEnrollment        MFAEnrollment?
-  auditLogs            AuditLog[]
-  studentProfile       StudentProfile?
-  staffProfile         StaffProfile?
-  reviewedApplicants   OnboardingApplicant[] @relation("ApplicantReviewer")
-  verifiedDocuments    OnboardingDocument[]  @relation("DocumentVerifier")
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles              UserRole[]
+  sessions               Session[]
+  tokenFamilies          RefreshTokenFamily[]
+  mfaEnrollment          MFAEnrollment?
+  auditLogs              AuditLog[]
+  studentProfile         StudentProfile?
+  staffProfile           StaffProfile?
+  reviewedApplicants     OnboardingApplicant[] @relation("ApplicantReviewer")
+  verifiedDocuments      OnboardingDocument[]  @relation("DocumentVerifier")
+  approvedMedicalLeaves  MedicalLeaveApplication[] @relation("MedicalLeaveApprover")
 
-  createdAt            DateTime     @default(now()) @map("created_at")
-  updatedAt            DateTime     @updatedAt @map("updated_at")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
 
   @@unique([tenantId, emailNormalized])
   @@unique([tenantId, username])
@@ -414,6 +457,7 @@ model AcademicProgram {
   cohorts        CohortBatch[]
   applicants     OnboardingApplicant[]
   students       StudentProfile[]
+  subjects       CourseSubject[]
 
   @@unique([tenantId, code])
   @@index([tenantId, departmentId])
@@ -421,21 +465,24 @@ model AcademicProgram {
 }
 
 model CohortBatch {
-  id           String          @id @default(uuid(7))
-  tenantId     String          @map("tenant_id")
-  programId    String          @map("program_id")
-  academicYear String          @map("academic_year") // e.g. "2026-2027"
-  startYear    Int             @map("start_year")    // 2026
-  endYear      Int             @map("end_year")      // 2030
-  section      String          @default("A")         // "A", "B", "C"
-  maxCapacity  Int             @default(60) @map("max_capacity")
-  isActive     Boolean         @default(true) @map("is_active")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  id              String          @id @default(uuid(7))
+  tenantId        String          @map("tenant_id")
+  programId       String          @map("program_id")
+  academicYear    String          @map("academic_year") // e.g. "2026-2027"
+  startYear       Int             @map("start_year")    // 2026
+  endYear         Int             @map("end_year")      // 2030
+  section         String          @default("A")         // "A", "B", "C"
+  maxCapacity     Int             @default(60) @map("max_capacity")
+  currentEnrolled Int             @default(0) @map("current_enrolled")
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  program      AcademicProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
-  students     StudentProfile[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program            AcademicProgram     @relation(fields: [programId], references: [id], onDelete: Cascade)
+  students           StudentProfile[]
+  timetableSlots     TimetableSlot[]
+  attendanceSessions AttendanceSession[]
 
   @@unique([tenantId, programId, academicYear, section])
   @@index([tenantId, programId])
@@ -560,6 +607,8 @@ model StudentProfile {
   applicant          OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   program            AcademicProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
   cohort             CohortBatch     @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  attendanceRecords  AttendanceRecord[]
+  medicalLeaves      MedicalLeaveApplication[]
 
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
@@ -572,23 +621,25 @@ model StudentProfile {
 }
 
 model StaffProfile {
-  id           String             @id @default(uuid(7))
-  tenantId     String             @map("tenant_id")
-  userId       String             @unique @map("user_id")
-  applicantId  String             @unique @map("applicant_id")
-  employeeId   String             @map("employee_id")
-  departmentId String             @map("department_id")
-  designation  String             // e.g. "Assistant Professor", "Senior Warden", "Catalog Librarian"
-  roleKey      String             @map("role_key") // e.g. "faculty", "warden", "librarian", "admin"
-  joiningDate  DateTime           @default(now()) @map("joining_date")
+  id                 String             @id @default(uuid(7))
+  tenantId           String             @map("tenant_id")
+  userId             String             @unique @map("user_id")
+  applicantId        String             @unique @map("applicant_id")
+  employeeId         String             @map("employee_id")
+  departmentId       String             @map("department_id")
+  designation        String             // e.g. "Assistant Professor", "Senior Warden", "Catalog Librarian"
+  roleKey            String             @map("role_key") // e.g. "faculty", "warden", "librarian", "admin"
+  joiningDate        DateTime           @default(now()) @map("joining_date")
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  applicant    OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  department   AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicant          OnboardingApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  department         AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  timetableSlots     TimetableSlot[]
+  attendanceSessions AttendanceSession[]
 
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   @@unique([tenantId, employeeId])
   @@index([tenantId, departmentId])
@@ -611,5 +662,137 @@ model IdentitySequenceCounter {
 
   @@unique([tenantId, sequenceType, prefix])
   @@map("identity_sequence_counters")
+}
+
+// ==============================================================================
+// Subsystem: Rank 4 - Attendance Management System (attendance)
+// Multi-Mode Roll Call, Threshold Tracking (<75%) & Medical Condonation
+// ==============================================================================
+
+model CourseSubject {
+  id          String   @id @default(uuid(7))
+  tenantId    String   @map("tenant_id")
+  programId   String   @map("program_id")
+  code        String   // e.g. "CS301", "MA101"
+  name        String   // e.g. "Data Structures & Algorithms"
+  credits     Int      @default(4)
+  semester    Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program     AcademicProgram    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  slots       TimetableSlot[]
+  sessions    AttendanceSession[]
+
+  @@unique([tenantId, programId, code])
+  @@index([tenantId, programId])
+  @@map("course_subjects")
+}
+
+model TimetableSlot {
+  id           String    @id @default(uuid(7))
+  tenantId     String    @map("tenant_id")
+  subjectId    String    @map("subject_id")
+  cohortId     String    @map("cohort_id")
+  facultyId    String    @map("faculty_id") // StaffProfile ID
+  dayOfWeek    DayOfWeek @map("day_of_week")
+  startTime    String    @map("start_time") // "09:00"
+  endTime      String    @map("end_time")   // "10:00"
+  roomCode     String    @map("room_code")  // "LH-101"
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subject      CourseSubject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  cohort       CohortBatch       @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  faculty      StaffProfile      @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  sessions     AttendanceSession[]
+
+  @@index([tenantId, cohortId, dayOfWeek])
+  @@index([tenantId, facultyId])
+  @@map("timetable_slots")
+}
+
+model AttendanceSession {
+  id            String                  @id @default(uuid(7))
+  tenantId      String                  @map("tenant_id")
+  slotId        String?                 @map("slot_id")
+  subjectId     String                  @map("subject_id")
+  facultyId     String                  @map("faculty_id") // StaffProfile ID
+  cohortId      String                  @map("cohort_id")
+  sessionDate   String                  @map("session_date") // YYYY-MM-DD
+  startTime     String                  @map("start_time")   // "09:00"
+  endTime       String                  @map("end_time")     // "10:00"
+  mode          AttendanceMode          @default(MANUAL_FACULTY)
+  status        AttendanceSessionStatus @default(SCHEDULED)
+  openedAt      DateTime?               @map("opened_at")
+  lockedAt      DateTime?               @map("locked_at")
+  totalStudents Int                     @default(0) @map("total_students")
+  presentCount  Int                     @default(0) @map("present_count")
+  absentCount   Int                     @default(0) @map("absent_count")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slot          TimetableSlot?          @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  subject       CourseSubject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty       StaffProfile            @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  cohort        CohortBatch             @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  records       AttendanceRecord[]
+
+  @@unique([tenantId, cohortId, subjectId, sessionDate, startTime])
+  @@index([tenantId, facultyId, sessionDate])
+  @@index([tenantId, cohortId, sessionDate])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id          String                 @id @default(uuid(7))
+  tenantId    String                 @map("tenant_id")
+  sessionId   String                 @map("session_id")
+  studentId   String                 @map("student_id") // StudentProfile ID
+  status      AttendanceRecordStatus @default(PRESENT)
+  remarks     String?
+  markedAt    DateTime               @default(now()) @map("marked_at")
+  deviceId    String?                @map("device_id")
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  session     AttendanceSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student     StudentProfile         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([tenantId, studentId, status])
+  @@index([sessionId])
+  @@map("attendance_records")
+}
+
+model MedicalLeaveApplication {
+  id              String             @id @default(uuid(7))
+  tenantId        String             @map("tenant_id")
+  studentId       String             @map("student_id") // StudentProfile ID
+  fromDate        String             @map("from_date") // YYYY-MM-DD
+  toDate          String             @map("to_date")   // YYYY-MM-DD
+  reason          String
+  certificateKey  String             @map("certificate_key")
+  status          MedicalLeaveStatus @default(PENDING)
+  approvedById    String?            @map("approved_by_id")
+  approvedAt      DateTime?          @map("approved_at")
+  rejectionReason String?            @map("rejection_reason")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         StudentProfile     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  approvedBy      User?              @relation("MedicalLeaveApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, studentId, status])
+  @@map("medical_leave_applications")
 }
 

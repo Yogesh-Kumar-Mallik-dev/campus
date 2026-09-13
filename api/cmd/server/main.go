@@ -22,10 +22,12 @@ import (
 	"github.com/go-chi/cors"
 
 	"campus/api"
+	attendancehttp "campus/api/http/attendance"
 	audithttp "campus/api/http/audit"
 	authhttp "campus/api/http/auth"
 	onboardinghttp "campus/api/http/onboarding"
 	"campus/api/middleware"
+	"campus/backend/attendance"
 	"campus/backend/audit"
 	"campus/backend/auth"
 	"campus/backend/onboarding"
@@ -137,11 +139,26 @@ func main() {
 	)
 	onboardingHandler := onboardinghttp.NewHandler(onboardingService)
 
-	// 4. Initialize HTTP Handlers & Middlewares
+	// 4. Initialize Rank 4: Attendance Management System
+	attendanceCatalogRepo := attendance.NewMockCatalogRepository()
+	attendanceSessionRepo := attendance.NewMockSessionRepository()
+	attendanceRecordRepo := attendance.NewMockRecordRepository()
+	attendanceLeaveRepo := attendance.NewMockMedicalLeaveRepository()
+
+	attendanceService := attendance.NewService(
+		attendanceCatalogRepo,
+		attendanceSessionRepo,
+		attendanceRecordRepo,
+		attendanceLeaveRepo,
+		auditSubscriber,
+	)
+	attendanceHandler := attendancehttp.NewHandler(attendanceService)
+
+	// 5. Initialize HTTP Handlers & Middlewares
 	authHandler := authhttp.NewAuthHandler(authService)
 	authMiddleware := authhttp.NewAuthMiddleware(signer)
 
-	// 5. Build Chi Router Pipeline
+	// 6. Build Chi Router Pipeline
 	r := chi.NewRouter()
 
 	// Gateway Hardened Middlewares
@@ -172,6 +189,7 @@ func main() {
 	authhttp.RegisterRoutes(r, authHandler, authMiddleware)
 	audithttp.RegisterRoutes(r, auditService)
 	onboardingHandler.RegisterRoutes(r)
+	attendanceHandler.RegisterRoutes(r)
 
 	server := &http.Server{
 		Addr:         ":" + port,
