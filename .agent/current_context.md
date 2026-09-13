@@ -48,11 +48,27 @@ The Campus Management System is an enterprise-grade platform unifying 17 core ca
 14. **Rank 14: SOS & Emergency Response System** (`sos`) — 1-tap mobile SOS, GPS dispatch, emergency sirens.
 15. **Rank 15: Anonymity & Whistleblower System** (`whistleblower`) — Zero-knowledge reporting, anti-ragging channel.
 16. **Rank 16: Public Web Portal System** (`portal`) — External showcase, programs catalog, admissions lead capture.
-17. **Rank 17: The Hub System (Parent Super-App Shell)** (`hub`) — 360-degree parent viewport into ward's campus life.
+17. **Rank 17: The Hub System (Root Super-App Shell)** (`hub`) — Universal root host shell uniting Student Hub, Teacher Hub, Admin Hub, Librarian Hub, Parent Hub, Warden Hub.
 
 ---
 
-## 3. Active Focus & Immediate Next Step
+## 3. Technology Stack & Sizing Targets
 
-- **Current Step:** Begin **Rank 1: Central Auth & Permissions System (IAM)** (`backend/auth/`).
-- **Standard:** Open-Closed Principle (OCP), Interface-driven Dependency Injection (DI), 100% Mock Unit Test Coverage, Zero AI Anti-Patterns.
+- **Frontend Web & Desktop:** Svelte 5 (Runes) + SvelteKit 2 + shadcn-svelte + Tauri 2.
+- **Frontend Mobile:** React Native + Expo Router + NativeWind + React Native Reusables (`@rn-primitives`).
+- **Backend Core:** Go 1.23+ Modular Monolith with `go-chi` and interface-driven Dependency Injection.
+- **Detached Data Layer:** PostgreSQL 18 + Prisma 6 schema & TypeScript tooling (`database/`).
+- **Monorepo Toolchain:** Turborepo + pnpm workspace + `./script.sh` / `.\script.ps1`.
+- **Target Scale:** 30,000 total users, 5,000 peak concurrent active sessions (baseline: ~1,200 users).
+
+---
+
+## 4. Active Focus & Immediate Next Steps
+
+- **Current Subsystem:** **Rank 1: Central Auth & Permissions System (IAM)** (`auth`).
+- **Step 1:** Authoritative PostgreSQL 18 schema definition in `database/schema.prisma`.
+- **Step 2:** Go domain models, error contracts, and DI interfaces in `backend/auth/`.
+- **Step 3:** Password hashing (Argon2id), token family session rotation, and TOTP MFA provider with 100% mock unit test coverage.
+- **Step 4:** API handlers with RFC 7807 problem details in `api/http/auth/`.
+- **Step 5:** Svelte 5 / React Native Reusables auth views in `frontend/`.
+- **Rule Enforcement:** Perform single-change atomic commits (`git commit -S -m "..."`) and update `.agent/current_context.md` on every step.
